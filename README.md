@@ -1,5 +1,9 @@
+[![Build Status](https://travis-ci.org/cisco/libsrtp.svg?branch=master)](https://travis-ci.org/cisco/libsrtp)
+[![Coverity Scan Build Status](https://scan.coverity.com/projects/14274/badge.svg)](https://scan.coverity.com/projects/cisco-libsrtp)
+
 bang lol
 
+easter egg 2
 <a name="introduction-to-libsrtp"></a>
 # Introduction to libSRTP
 
@@ -53,6 +57,7 @@ because it does its work behind the scenes.
   - [Supported Features](#supported-features)
   - [Implementation Notes](#implementation-notes)
 - [Installing and Building libSRTP](#installing-and-building-libsrtp)
+  - [Changing Build Configuration](#changing-build-configuration)
 - [Applications](#applications)
   - [Example Code](#example-code)
 - [Credits](#credits)
@@ -67,7 +72,7 @@ libSRTP is distributed under the following license, which is included
 in the source code distribution. It is reproduced in the manual in
 case you got the library from another source.
 
-> Copyright (c) 2001-2005 Cisco Systems, Inc.  All rights reserved.
+> Copyright (c) 2001-2017 Cisco Systems, Inc.  All rights reserved.
 >
 > Redistribution and use in source and binary forms, with or without
 > modification, are permitted provided that the following conditions
@@ -193,31 +198,25 @@ in which a key is used for both inbound and outbound data.
 ## Supported Features
 
 This library supports all of the mandatory-to-implement features of
-SRTP (as defined by the most recent Internet Draft). Some of these
+SRTP (as defined in [RFC 3711](https://www.ietf.org/rfc/rfc3711.txt)). Some of these
 features can be selected (or de-selected) at run time by setting an
 appropriate policy; this is done using the structure `srtp_policy_t`.
 Some other behaviors of the protocol can be adapted by defining an
 approriate event handler for the exceptional events; see the SRTPevents
 section in the generated documentation.
 
-Some options that are not included in the specification are supported.
-Most notably, the TMMH authentication function is included, though it
-was removed from the SRTP Internet Draft during the summer of 2002.
-
 Some options that are described in the SRTP specification are not
 supported. This includes
 
-- the Master Key Index (MKI),
 - key derivation rates other than zero,
 - the cipher F8,
-- anti-replay lists with sizes other than 128,
 - the use of the packet index to select between master keys.
 
 The user should be aware that it is possible to misuse this libary,
 and that the result may be that the security level it provides is
 inadequate. If you are implementing a feature using this library, you
-will want to read the Security Considerations section of the Internet
-Draft. In addition, it is important that you read and understand the
+will want to read the Security Considerations section of [RFC 3711](https://www.ietf.org/rfc/rfc3711.txt).
+In addition, it is important that you read and understand the
 terms outlined in the [License and Disclaimer](#license-and-disclaimer) section.
 
 --------------------------------------------------------------------------------
@@ -253,8 +252,7 @@ terms outlined in the [License and Disclaimer](#license-and-disclaimer) section.
     less than 32,768; this trick is no longer required as the
     `rdbx_estimate_index(...)` function has been made smarter.
 
-  * The replay window is 128 bits in length, and is hard-coded to this
-    value for now.
+  * The replay window for (S)RTCP is hardcoded to 128 bits in length.
 
 --------------------------------------------------------------------------------
 
@@ -280,16 +278,15 @@ make
 
 The configure script accepts the following options:
 
-Option                    | Description
----------                 | -------
-\-\-help                  | provides a usage summary
-\-\-enable-debug-logging  | enable debug logging in all modules
-\-\-enable-log-stdout     | redirecting logging to stdout
-\-\-with-log-file <file>  | use file for logging
-\-\-enable-openssl        | use OpenSSL crypto primitives
-\-\-with-openssl-dir      | Specify location of OpenSSL installation
-\-\-enable-openssl-kdf use| OpenSSL SRTP KDF algorithm
-\-\-gdoi                  | use GDOI key management (disabled at present)
+Option                         | Description
+-------------------------------|--------------------
+\-\-help                   \-h | Display help
+\-\-enable-debug-logging       | Enable debug logging in all modules
+\-\-enable-log-stdout          | Enable logging to stdout
+\-\-enable-openssl             | Enable OpenSSL crypto engine
+\-\-enable-openssl-kdf         | Enable OpenSSL KDF algorithm
+\-\-with-log-file              | Use file for logging
+\-\-with-openssl-dir           | Location of OpenSSL installation
 
 By default there is no log output, logging can be enabled to be output to stdout
 or a given file using the configure options.
@@ -298,6 +295,26 @@ This package has been tested on the following platforms: Mac OS X
 (powerpc-apple-darwin1.4), Cygwin (i686-pc-cygwin), Solaris
 (sparc-sun-solaris2.6), RedHat Linux 7.1 and 9 (i686-pc-linux), and
 OpenBSD (sparc-unknown-openbsd2.7).
+
+--------------------------------------------------------------------------------
+
+<a name="changing-build-configuration"></a>
+## Changing Build Configuration
+
+To build the `./configure` script mentioned above, libSRTP relies on the
+[automake](https://www.gnu.org/software/automake/) toolchain.  Since
+`./configure` is built from `configure.in` by automake, if you make changes in
+how `./configure` works (e.g., to add a new library dependency), you will need
+to rebuild `./configure` and commit the updated version.  In addition to
+automake itself, you will need to have the `pkgconfig` tools installed as well.
+
+For example, on macOS:
+
+```
+brew install automake pkgconfig
+# Edit configure.in
+autoremake -ivf
+```
 
 --------------------------------------------------------------------------------
 
@@ -407,6 +424,9 @@ uint8_t key[30] = {0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
 // initialize libSRTP
 srtp_init();
 
+// default policy values
+memset(&policy, 0x0, sizeof(srtp_policy_t));
+
 // set policy to describe a policy for an SRTP stream
 crypto_policy_set_rtp_default(&policy.rtp);
 crypto_policy_set_rtcp_default(&policy.rtcp);
@@ -461,8 +481,10 @@ September, 2005
 Secure RTP is defined in [RFC 3711](https://www.ietf.org/rfc/rfc3711.txt).
 The counter mode definition is in Section 4.1.1.
 
-SHA-1 is defined in FIPS-180-1, available online at the NIST website.
+SHA-1 is defined in [FIPS PUB 180-4](http://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.180-4.pdf).
 
-HMAC is defined in [RFC2104](https://www.ietf.org/rfc/rfc2104.txt)
+HMAC is defined in [RFC 2104](https://www.ietf.org/rfc/rfc2104.txt)
 and HMAC-SHA1 test vectors are available
-in [RFC2202](https://www.ietf.org/rfc/rfc2202.txt).
+in [RFC 2202](https://www.ietf.org/rfc/rfc2202.txt).
+
+AES-GCM usage in SRTP is defined in [RFC 7714](https://www.ietf.org/html/rfc7714)

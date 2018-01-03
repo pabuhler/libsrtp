@@ -1,5 +1,5 @@
 dnl Process this file with autoconf to produce a configure script.
-AC_INIT([libsrtp2], [2.1.0-pre], [https://github.com/cisco/libsrtp/issues])
+AC_INIT([libsrtp2], [2.2.0-pre], [https://github.com/cisco/libsrtp/issues])
 
 dnl Must come before AC_PROG_CC
 EMPTY_CFLAGS="no"
@@ -9,9 +9,13 @@ if test "x$CFLAGS" = "x"; then
 fi
 
 dnl Checks for programs.
-m4_ifdef([AM_PROG_AR], [AM_PROG_AR])
-AC_PROG_RANLIB
 AC_PROG_CC
+AC_PROG_CPP
+AC_ARG_VAR(
+  [EXTRA_CFLAGS],
+  [C compiler flags appended to the regular C compiler flags instead of overriding them])
+AM_PROG_AR
+AC_PROG_RANLIB
 AC_PROG_INSTALL
 AC_PROG_SED
 
@@ -55,10 +59,10 @@ dnl This will be removed again once the tests are complete (see below).
 WERROR=""
 for w in -Werror -errwarn; do
   if test "x$WERROR" = "x"; then
-    AC_MSG_CHECKING([whether the compiler supports $w])
+    AC_MSG_CHECKING([whether ${CC-c} accepts $w])
     save_cflags="$CFLAGS"
     AS_IF([test "x$CFLAGS" = "x"], [CFLAGS="$w"], [CFLAGS="$CFLAGS $w"])
-    AC_COMPILE_IFELSE([AC_LANG_PROGRAM()],
+    AC_COMPILE_IFELSE([AC_LANG_SOURCE([int main(void) { return 0; }])],
       [WERROR="$w"
        AC_MSG_RESULT([yes])],
       [CFLAGS="$save_cflags"
@@ -66,23 +70,26 @@ for w in -Werror -errwarn; do
   fi
 done
 
-dnl Note that -fPIC is also added to LDFLAGS.
-AC_MSG_CHECKING([whether the compiler supports -fPIC])
+dnl Note that -fPIC is not explicitly added to LDFLAGS.
+dnl Since the compiler is used as the link driver, CFLAGS will be part of the
+dnl link line as well and the linker will get the flag from there.
+dnl Adding it to LDFLAGS explicitly would duplicate the flag on the link line,
+dnl but otherwise do no harm.
+AC_MSG_CHECKING([whether ${CC-c} accepts -fPIC])
 save_cflags="$CFLAGS"
 AS_IF([test "x$CFLAGS" = "x"], [CFLAGS="-fPIC"], [CFLAGS="$CFLAGS -fPIC"])
-AC_COMPILE_IFELSE([AC_LANG_PROGRAM()],
+AC_COMPILE_IFELSE([AC_LANG_SOURCE([int main(void) { return 0; }])],
   [AS_IF([test "x$supported_cflags" = "x"], [supported_cflags="-fPIC"], [supported_cflags="$supported_cflags -fPIC"])
-   AS_IF([test "x$LDFLAGS" = "x"], [LDFLAGS="-fPIC"], [LDFLAGS="$LDFLAGS -fPIC"])
    AC_MSG_RESULT([yes])],
   [CFLAGS="$save_cflags"
    AC_MSG_RESULT([no])])
 
 if test "$EMPTY_CFLAGS" = "yes"; then
-  for f in -Wall -pedantic; do
-    AC_MSG_CHECKING([whether the compiler supports $f])
+  for f in -Wall -pedantic -Wstrict-prototypes; do
+    AC_MSG_CHECKING([whether ${CC-c} accepts $f])
     save_cflags="$CFLAGS"
     AS_IF([test "x$CFLAGS" = "x"], [CFLAGS="$f"], [CFLAGS="$CFLAGS $f"])
-    AC_COMPILE_IFELSE([AC_LANG_PROGRAM()],
+    AC_COMPILE_IFELSE([AC_LANG_SOURCE([int main(void) { return 0; }])],
       [AS_IF([test "x$supported_cflags" = "x"], [supported_cflags="$f"], [supported_cflags="$supported_cflags $f"])
        AC_MSG_RESULT([yes])],
       [CFLAGS="$save_cflags"
@@ -92,10 +99,10 @@ if test "$EMPTY_CFLAGS" = "yes"; then
   OOPT=""
   for f in -O4 -O3; do
     if test "x$OOPT" = "x"; then
-      AC_MSG_CHECKING([whether the compiler supports $f])
+      AC_MSG_CHECKING([whether ${CC-c} accepts $f])
       save_cflags="$CFLAGS"
       AS_IF([test "x$CFLAGS" = "x"], [CFLAGS="$f"], [CFLAGS="$CFLAGS $f"])
-      AC_COMPILE_IFELSE([AC_LANG_PROGRAM()],
+      AC_COMPILE_IFELSE([AC_LANG_SOURCE([int main(void) { return 0; }])],
         [AS_IF([test "x$supported_cflags" = "x"], [supported_cflags="$f"], [supported_cflags="$supported_cflags $f"])
          OOPT="$f"
          AC_MSG_RESULT([yes])],
@@ -105,10 +112,10 @@ if test "$EMPTY_CFLAGS" = "yes"; then
   done
 
   for f in -fexpensive-optimizations -funroll-loops; do
-    AC_MSG_CHECKING([whether the compiler supports $f])
+    AC_MSG_CHECKING([whether ${CC-c} accepts $f])
     save_cflags="$CFLAGS"
     AS_IF([test "x$CFLAGS" = "x"], [CFLAGS="$f"], [CFLAGS="$CFLAGS $f"])
-    AC_COMPILE_IFELSE([AC_LANG_PROGRAM()],
+    AC_COMPILE_IFELSE([AC_LANG_SOURCE([int main(void) { return 0; }])],
       [AS_IF([test "x$supported_cflags" = "x"], [supported_cflags="$f"], [supported_cflags="$supported_cflags $f"])
        AC_MSG_RESULT([yes])],
       [CFLAGS="$save_cflags"
@@ -118,14 +125,14 @@ fi
 
 dnl When turning off warnigns, we're expecting unrecognized command line option errors if they're not
 dnl supported. However, the -Wno-<warning> form isn't consulted unless a warning is triggered.
-dnl At least that's the case for GCC. So to check which warnings we can turn off, we dnl need to check
+dnl At least that's the case for GCC. So to check which warnings we can turn off, we need to check
 dnl if they can be turned on, thereby forcing GCC to take the argument into account right away.
 for f in -Wno-language-extension-token; do
-  AC_MSG_CHECKING([whether the compiler supports $f])
+  AC_MSG_CHECKING([whether ${CC-c} accepts $f])
   save_cflags="$CFLAGS"
   testf=$(echo "$f" | $SED 's|-Wno-\(.*\)|-W\1|g')
   AS_IF([test "x$CFLAGS" = "x"], [CFLAGS="$testf"], [CFLAGS="$CFLAGS $testf"])
-  AC_COMPILE_IFELSE([AC_LANG_PROGRAM()],
+  AC_COMPILE_IFELSE([AC_LANG_SOURCE([int main(void) { return 0; }])],
     [AS_IF([test "x$supported_cflags" = "x"], [supported_cflags="$f"], [supported_cflags="$supported_cflags $f"])
      AC_MSG_RESULT([yes])],
     [CFLAGS="$save_cflags"
@@ -166,13 +173,22 @@ if test "x$ac_cv_func_socket" = "xno"; then
   AC_MSG_CHECKING([for socket in -lwsock32])
   SAVELIBS="$LIBS"
   LIBS="$LIBS -lwsock32"
-  AC_LINK_IFELSE([AC_LANG_PROGRAM([[
+  AC_LINK_IFELSE(
+    [AC_LANG_SOURCE([
 #include <winsock2.h>
-]], [[
-socket(0, 0, 0);
-]])],[ac_cv_func_socket=yes
-    AC_MSG_RESULT([yes])],[LIBS="$SAVELIBS"
-    AC_MSG_RESULT([no])])
+int main(void)
+{
+    int fd = socket(0, 0, 0);
+    if (fd < 0)
+      return -1;
+    else
+      return 0;
+}
+    ])],
+    [ac_cv_func_socket=yes
+     AC_MSG_RESULT([yes])],
+    [LIBS="$SAVELIBS"
+     AC_MSG_RESULT([no])])
 fi
 
 AC_MSG_CHECKING([whether to enable debug logging in all modules])
@@ -256,11 +272,19 @@ AC_SUBST([AES_ICM_OBJS])
 AC_SUBST([HMAC_OBJS])
 
 dnl Checking for PCAP
+
+PCAP_LIB=""
 AC_CHECK_LIB([pcap], [pcap_create],
-  [LIBS="-lpcap $LIBS"
+  [PCAP_LIB="-lpcap"
    AC_DEFINE([HAVE_PCAP], [1], [Define to 1 if you have the `pcap' library (-lpcap)])
    AC_SUBST([HAVE_PCAP], [1])])
-
+   
+AC_CHECK_LIB([wpcap], [pcap_create],
+  [PCAP_LIB="-lwpcap"
+   AC_DEFINE([HAVE_PCAP], [1], [Define to 1 if you have the `winpcap' library (-lwpcap)])
+   AC_SUBST([HAVE_PCAP], [1])])
+AC_SUBST([PCAP_LIB])
+   
 AC_MSG_CHECKING([whether to redirect logging to stdout])
 AC_ARG_ENABLE([log-stdout],
   [AS_HELP_STRING([--enable-log-stdout], [redirecting logging to stdout])],
@@ -287,6 +311,14 @@ AC_ARG_WITH([log-file],
 AS_IF(
   [test "$enable_log_stdout" = "yes" && test "x$with_log_file" != "x"],
   [AC_MSG_FAILURE([Can only use one of --enable-log-stdout and --with-log-file; they are mutually exclusive])])
+
+dnl Appending EXTRA_CFLAGS, if given
+AC_MSG_CHECKING([for extra C compiler flags])
+AS_IF([test "x$EXTRA_CFLAGS" != "x"],
+   [AS_IF([test "x$CFLAGS" = "x"],
+      [CFLAGS="$EXTRA_CFLAGS"], [CFLAGS="$CFLAGS $EXTRA_CFLAGS"])
+    AC_MSG_RESULT([$EXTRA_CFLAGS])],
+   [AC_MSG_RESULT(no)])
 
 AC_CONFIG_HEADER([crypto/include/config.h:config_in.h])
 
