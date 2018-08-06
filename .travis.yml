@@ -62,6 +62,7 @@ matrix:
             - ubuntu-toolchain-r-test
           packages:
             - gcc-6
+            - gyp
       before_install:
             - wget https://ftp.mozilla.org/pub/security/nss/releases/NSS_3_38_RTM/src/nss-3.38-with-nspr-4.19.tar.gz
             - tar -xzvf nss-3.38-with-nspr-4.19.tar.gz
