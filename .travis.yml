@@ -68,7 +68,7 @@ matrix:
             - wget https://ftp.mozilla.org/pub/security/nss/releases/NSS_3_38_RTM/src/nss-3.38-with-nspr-4.19.tar.gz
             - tar -xzvf nss-3.38-with-nspr-4.19.tar.gz
             - pushd nss-3.38/nss
-            - ./build.sh
+            - ./build.sh -v
             - popd
       script:
         - CC=gcc-6 EXTRA_CFLAGS=-Werror ./configure --enable-openssl
