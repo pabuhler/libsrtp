@@ -52,6 +52,27 @@ matrix:
         - make
         - make runtest
 
+    # linux build with nss
+    - os: linux
+      env:
+        - TEST="linux gcc (nss)"
+      addons:
+        apt:
+          sources:
+            - ubuntu-toolchain-r-test
+          packages:
+            - gcc-6
+      before_install:
+            - wget https://ftp.mozilla.org/pub/security/nss/releases/NSS_3_38_RTM/src/nss-3.38-with-nspr-4.19.tar.gz
+            - tar -xzvf nss-3.38-with-nspr-4.19.tar.gz
+            - pushd nss-3.38
+            - ./build.sh
+            - popd
+      script:
+        - CC=gcc-6 EXTRA_CFLAGS=-Werror ./configure --enable-openssl
+        - make
+        - make runtest
+
     # default osx build with xcode (clang)
     - os: osx
       env:
