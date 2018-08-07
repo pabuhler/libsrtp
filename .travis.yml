@@ -103,7 +103,7 @@ matrix:
             - popd
             - popd
       script:
-        - EXTRA_CFLAGS=-Werror ./configure
+        - EXTRA_CFLAGS=-Werror ./configure --enable-nss --with-nss-dir=$NSS_DIR
         - make
         - make runtest
 
