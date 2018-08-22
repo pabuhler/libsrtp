@@ -321,7 +321,7 @@ srtp_err_status_t test_replay_dbx(int num_trials, unsigned long ws)
     return srtp_err_status_ok;
 }
 
-#include <time.h>   /* for clock()  */
+#include <time.h> /* for clock()  */
 
 double rdbx_check_adds_per_second(int num_trials, unsigned long ws)
 {

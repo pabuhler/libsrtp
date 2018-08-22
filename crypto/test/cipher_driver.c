@@ -47,7 +47,7 @@
 #include <config.h>
 #endif
 
-#include <stdio.h>  /* for printf() */
+#include <stdio.h> /* for printf() */
 #include "getopt_s.h"
 #include "cipher.h"
 #include "cipher_priv.h"

@@ -53,7 +53,6 @@
 #include <sys/socket.h>
 #endif
 
-
 #include "cipher_priv.h"
 
 #define PRINT_DEBUG 0   /* set to 1 to print out debugging data */
