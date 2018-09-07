@@ -191,7 +191,7 @@ srtp_err_status_t test_rdb_db()
 
     /* test insertion with large gaps */
     for (idx = 0, ircvd = 0; idx < num_trials;
-         idx++, ircvd += (1 << (srtp_cipher_rand_64() % 10))) {
+         idx++, ircvd += (1 << (srtp_cipher_rand_u32() % 10))) {
         err = rdb_check_add(&rdb, ircvd);
         if (err)
             return err;

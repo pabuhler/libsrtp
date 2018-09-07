@@ -390,7 +390,7 @@ srtp_err_status_t cipher_driver_test_buffering(srtp_cipher_t *c)
         end = buffer1 + buflen;
         while (current < end) {
             /* choose a short length */
-            len = srtp_cipher_rand_64() & 0x01f;
+            len = srtp_cipher_rand_u32() & 0x01f;
 
             /* make sure that len doesn't cause us to overreach the buffer */
             if (current + len > end)
@@ -528,7 +528,7 @@ uint64_t cipher_array_bits_per_second(srtp_cipher_t *cipher_array[],
     v128_t nonce;
     clock_t timer;
     unsigned char *enc_buf;
-    int cipher_index = srtp_cipher_rand_64() % num_cipher;
+    int cipher_index = srtp_cipher_rand_u32() % num_cipher;
 
     /* Over-alloc, for NIST CBC padding */
     enc_buf = srtp_crypto_alloc(octets_in_buffer + 17);

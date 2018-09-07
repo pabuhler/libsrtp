@@ -150,7 +150,7 @@ int rtp_sender_init(rtp_sender_t sender,
     /* set header values */
     sender->message.header.ssrc = htonl(ssrc);
     sender->message.header.ts = 0;
-    sender->message.header.seq = (uint16_t)srtp_cipher_rand_64();
+    sender->message.header.seq = (uint16_t)srtp_cipher_rand_u32();
     sender->message.header.m = 0;
     sender->message.header.pt = 0x1;
     sender->message.header.version = 2;

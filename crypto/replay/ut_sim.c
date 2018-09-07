@@ -53,7 +53,7 @@
 
 int ut_compar(const void *a, const void *b)
 {
-    return srtp_cipher_rand_64() > 0xFFFFFFFF ? -1 : 1;
+    return srtp_cipher_rand_u32() > (UINT32_MAX / 2) ? -1 : 1;
 }
 
 void ut_init(ut_connection *utc)

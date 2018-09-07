@@ -202,9 +202,9 @@ void srtp_cipher_rand(void *dest, uint32_t len)
  * A trivial platform independent 64 bit random number.
  * For use in test only.
  */
-uint64_t srtp_cipher_rand_64(void)
+uint32_t srtp_cipher_rand_u32(void)
 {
-    uint64_t r;
+    uint32_t r;
     srtp_cipher_rand(&r, sizeof(r));
     return r;
 }
@@ -476,7 +476,7 @@ srtp_err_status_t srtp_cipher_type_test(
         uint8_t iv[MAX_KEY_LEN];
 
         /* choose a length at random (leaving room for IV and padding) */
-        length = srtp_cipher_rand_64() % (SELF_TEST_BUF_OCTETS - 64);
+        length = srtp_cipher_rand_u32() % (SELF_TEST_BUF_OCTETS - 64);
         debug_print(srtp_mod_cipher, "random plaintext length %d\n", length);
         srtp_cipher_rand(buffer, length);
 

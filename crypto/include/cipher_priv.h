@@ -50,10 +50,10 @@ extern "C" {
 void srtp_cipher_rand(void *dest, uint32_t len);
 
 /*
- * A trivial platform independent 64 bit random number.
+ * A trivial platform independent 32 bit random number.
  * For use in test only.
  */
-uint64_t srtp_cipher_rand_64(void);
+uint32_t srtp_cipher_rand_u32(void);
 
 #ifdef __cplusplus
 }

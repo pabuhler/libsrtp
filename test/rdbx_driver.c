@@ -306,7 +306,7 @@ srtp_err_status_t test_replay_dbx(int num_trials, unsigned long ws)
      */
     printf("\ttesting insertion with large gaps...");
     for (idx = 0, ircvd = 0; (int)idx < num_trials;
-         idx++, ircvd += (1 << (srtp_cipher_rand_64() % 12))) {
+         idx++, ircvd += (1 << (srtp_cipher_rand_u32() % 12))) {
         status = rdbx_check_add(&rdbx, ircvd);
         if (status)
             return status;
