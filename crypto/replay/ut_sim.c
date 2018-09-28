@@ -53,7 +53,9 @@
 
 int ut_compar(const void *a, const void *b)
 {
-    return srtp_cipher_rand_u32_for_tests() > (UINT32_MAX / 2) ? -1 : 1;
+    uint8_t r;
+    srtp_cipher_rand_for_tests(&r, sizeof(r));
+    return r > (UINT8_MAX / 2) ? -1 : 1;
 }
 
 void ut_init(ut_connection *utc)
