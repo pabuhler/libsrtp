@@ -81,7 +81,7 @@ matrix:
       script:
         - EXTRA_CFLAGS=-Werror ./configure
         - make
-        - make run-test
+        - make runtest
 
     # osx build with openssl
     - os: osx
