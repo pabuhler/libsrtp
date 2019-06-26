@@ -150,6 +150,7 @@ matrix:
             - clang
       script:
         - CC=clang CXX=clang++ CXXFLAGS="-fsanitize=fuzzer-no-link,address,undefined -g -O3" CFLAGS="-fsanitize=fuzzer-no-link,address,undefined -g -O3" LDFLAGS="-fsanitize=fuzzer-no-link,address,undefined" ./configure
+        - cat config.log
         - LIBFUZZER="-fsanitize=fuzzer" make srtp-fuzzer
 
     # coverity scan
