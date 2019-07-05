@@ -3,7 +3,6 @@ cmake_minimum_required (VERSION 2.8)
 project(srtp2)
 
 set(SOURCES_C
-	srtp/ekt.c
 	srtp/srtp.c
 )
 
@@ -60,7 +59,6 @@ set(SOURCES_H
 	crypto/include/rdbx.h
 	crypto/include/sha1.h
 	crypto/include/stat.h
-	include/ekt.h
 	include/srtp.h
 	include/srtp_priv.h
 	include/ut_sim.h
@@ -85,5 +83,6 @@ add_library(srtp2 STATIC
 )
 
 target_include_directories(srtp2 PUBLIC crypto/include include)
-configure_file(config.hw ${CMAKE_CURRENT_SOURCE_DIR}/crypto/include/config.h COPYONLY)
-add_definitions(-D_LIB -DHAVE_CONFIG_H)
+
+configure_file(config.h.cmake.in ${CMAKE_CURRENT_SOURCE_DIR}/crypto/include/config.h)
+add_definitions(-DHAVE_CONFIG_H)
