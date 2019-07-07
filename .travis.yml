@@ -9,6 +9,38 @@ env:
 matrix:
   include:
 
+# linux build
+    - os: linux
+      env:
+        - TEST="linux (gcc / valgrind)"
+      addons:
+        apt:
+          sources:
+            - ubuntu-toolchain-r-test
+          packages:
+            - gcc-6
+            - valgrind
+      script:
+        - CC=gcc-6 EXTRA_CFLAGS=-Werror ./configure
+        - make
+        - make runtest
+        - make runtest-valgrind
+        - mkdir build && cd build
+        - cmake ..
+        - make
+
+    # default osx build
+    - os: osx
+      env:
+        - TEST="osx"
+      script:
+        - EXTRA_CFLAGS=-Werror ./configure
+        - make
+        - make runtest
+        - mkdir build && cd build
+        - cmake ..
+        - make
+
     # windows build
     - os: windows
       env:
