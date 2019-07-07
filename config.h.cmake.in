@@ -4,6 +4,15 @@
 /* Define to the version of this package. */
 #cmakedefine PACKAGE_STRING "@PACKAGE_STRING@"
 
+/* Define to enabled debug logging for all mudules. */
+#cmakedefine ENABLE_DEBUG_LOGGING 1
+
+/* Logging statments will be writen to this file. */
+#cmakedefine ERR_REPORTING_FILE "@ERR_REPORTING_FILE@"
+
+/* Define to redirect logging to stdout. */
+#cmakedefine ERR_REPORTING_STDOUT 1
+
 /* Define if building for a CISC machine (e.g. Intel). */
 #define CPU_CISC 1
 

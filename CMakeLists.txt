@@ -35,6 +35,10 @@ check_type_size(int32_t INT32_T)
 check_type_size("unsigned long" SIZEOF_UNSIGNED_LONG)
 check_type_size("unsigned long long" SIZEOF_UNSIGNED_LONG_LONG)
 
+set(ENABLE_DEBUG_LOGGING OFF CACHE BOOL "Enable debug logging in all modules")
+set(ERR_REPORTING_STDOUT OFF CACHE BOOL "Enable logging to stdout")
+set(ERR_REPORTING_FILE "" CACHE FILEPATH "Use file for logging")
+
 configure_file(config.h.cmake.in ${CMAKE_CURRENT_SOURCE_DIR}/crypto/include/config.h)
 add_definitions(-DHAVE_CONFIG_H)
 
