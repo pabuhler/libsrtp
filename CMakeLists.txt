@@ -1,6 +1,42 @@
-cmake_minimum_required (VERSION 2.8)
+cmake_minimum_required(VERSION 2.8)
 
-project(srtp2)
+project(libsrtp2 LANGUAGES C)
+
+set(PACKAGE_VERSION 2.3.0)
+set(PACKAGE_STRING "${CMAKE_PROJECT_NAME} ${PACKAGE_VERSION}")
+
+include(CheckIncludeFile)
+include(CheckFunctionExists)
+include(CheckTypeSize)
+
+check_include_file(arpa/inet.h HAVE_ARPA_INET_H)
+check_include_file(byteswap.h HAVE_BYTESWAP_H)
+check_include_file(inttypes.h HAVE_INTTYPES_H)
+check_include_file(machine/types.h HAVE_MACHINE_TYPES_H)
+check_include_file(netinet/in.h HAVE_NETINET_IN_H)
+check_include_file(stdint.h HAVE_STDINT_H)
+check_include_file(stdlib.h HAVE_STDLIB_H)
+check_include_file(sys/int_types.h HAVE_SYS_INT_TYPES_H)
+check_include_file(sys/socket.h HAVE_SYS_SOCKET_H)
+check_include_file(sys/types.h HAVE_SYS_TYPES_H)
+check_include_file(unistd.h HAVE_UNISTD_H)
+check_include_file(windows.h HAVE_WINDOWS_H)
+check_include_file(winsock2.h HAVE_WINSOCK2_H)
+
+check_function_exists(sigaction HAVE_SIGACTION)
+check_function_exists(inet_aton HAVE_INET_ATON)
+check_function_exists(usleep HAVE_USLEEP)
+
+check_type_size(uint8_t UINT8_T)
+check_type_size(uint16_t UINT16_T)
+check_type_size(uint32_t UINT32_T)
+check_type_size(uint64_t UINT64_T)
+check_type_size(int32_t INT32_T)
+check_type_size("unsigned long" SIZEOF_UNSIGNED_LONG)
+check_type_size("unsigned long long" SIZEOF_UNSIGNED_LONG_LONG)
+
+configure_file(config.h.cmake.in ${CMAKE_CURRENT_SOURCE_DIR}/crypto/include/config.h)
+add_definitions(-DHAVE_CONFIG_H)
 
 set(SOURCES_C
 	srtp/srtp.c
@@ -83,6 +119,3 @@ add_library(srtp2 STATIC
 )
 
 target_include_directories(srtp2 PUBLIC crypto/include include)
-
-configure_file(config.h.cmake.in ${CMAKE_CURRENT_SOURCE_DIR}/crypto/include/config.h)
-add_definitions(-DHAVE_CONFIG_H)
