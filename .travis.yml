@@ -51,4 +51,4 @@ matrix:
         - export PATH=$MSBUILD_PATH:$PATH
         - mkdir build && cd build
         - cmake -G "Visual Studio 15 2017" ..
-        - msbuild.exe srtp2.sln -p:Configuration=Release
+        - msbuild.exe libsrtp2.sln -p:Configuration=Release
