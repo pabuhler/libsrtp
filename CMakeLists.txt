@@ -39,6 +39,7 @@ set(ENABLE_DEBUG_LOGGING OFF CACHE BOOL "Enable debug logging in all modules")
 set(ERR_REPORTING_STDOUT OFF CACHE BOOL "Enable logging to stdout")
 set(ERR_REPORTING_FILE "" CACHE FILEPATH "Use file for logging")
 set(ENABLE_OPENSSL OFF CACHE BOOL "Enable OpenSSL crypto engine")
+set(TEST_APPS ON CACHE BOOL "Build test applications")
 
 if (ENABLE_OPENSSL)
   find_package(OpenSSL REQUIRED)
@@ -151,12 +152,18 @@ add_library(srtp2 STATIC
 )
 
 target_include_directories(srtp2 PUBLIC crypto/include include)
-if (ENABLE_OPENSSL)
+if(ENABLE_OPENSSL)
   target_link_libraries(srtp2 OpenSSL::Crypto)
 endif()
+if(WIN32)
+  target_link_libraries(srtp2 ws2_32)
+endif()
 
-add_executable(test_srtp test/test_srtp.c)
-target_link_libraries(test_srtp srtp2)
+if(TEST_APPS)
+  add_executable(test_srtp test/test_srtp.c)
+  target_link_libraries(test_srtp srtp2)
 
-add_executable(srtp_driver test/srtp_driver.c test/util.c test/getopt_s.c)
-target_link_libraries(srtp_driver srtp2)
+  add_executable(srtp_driver test/srtp_driver.c test/util.c test/getopt_s.c)
+  target_link_libraries(srtp_driver srtp2)
+endif()
+
