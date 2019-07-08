@@ -190,11 +190,15 @@ matrix:
     - os: windows
       env:
         - TEST="windows"
-        - MSBUILD_PATH="c:\Program Files (x86)\Microsoft Visual Studio\2017\BuildTools\MSBuild\15.0\Bin"
 
       script:
-        - export PATH=$MSBUILD_PATH:$PATH
+        - export PATH="c:\Program Files (x86)\Microsoft Visual Studio\2017\BuildTools\MSBuild\15.0\Bin":$PATH
         - mkdir build && cd build
         - cmake -G "Visual Studio 15 2017" ..
+        - msbuild.exe libsrtp2.sln -p:Configuration=Release
+        - msbuild.exe RUN_TESTS.vcxproj -p:Configuration=Release
+        - cd ..
+        - mkdir build_openssl && cd build_openssl
+        - cmake -G "Visual Studio 15 2017" -DENABLE_OPENSSL=ON ..
         - msbuild.exe libsrtp2.sln -p:Configuration=Release
         - msbuild.exe RUN_TESTS.vcxproj -p:Configuration=Release
