@@ -38,27 +38,55 @@ check_type_size("unsigned long long" SIZEOF_UNSIGNED_LONG_LONG)
 set(ENABLE_DEBUG_LOGGING OFF CACHE BOOL "Enable debug logging in all modules")
 set(ERR_REPORTING_STDOUT OFF CACHE BOOL "Enable logging to stdout")
 set(ERR_REPORTING_FILE "" CACHE FILEPATH "Use file for logging")
+set(ENABLE_OPENSSL OFF CACHE BOOL "Enable OpenSSL crypto engine")
+
+if (ENABLE_OPENSSL)
+  find_package(OpenSSL REQUIRED)
+  include_directories(${OPENSSL_INCLUDE_DIR})
+endif()
+set(OPENSSL ${ENABLE_OPENSSL} CACHE BOOL INTERNAL)
+set(GCM ${ENABLE_OPENSSL} CACHE BOOL INTERNAL)
 
 configure_file(config.h.cmake.in ${CMAKE_CURRENT_SOURCE_DIR}/crypto/include/config.h)
 add_definitions(-DHAVE_CONFIG_H)
 
 set(SOURCES_C
+        srtp/ekt.c
 	srtp/srtp.c
 )
 
 set(CIPHERS_SOURCES_C
-	crypto/cipher/aes.c
-	crypto/cipher/aes_icm.c
 	crypto/cipher/cipher.c
 	crypto/cipher/null_cipher.c
 )
 
+if (ENABLE_OPENSSL)
+  list(APPEND CIPHERS_SOURCES_C
+	crypto/cipher/aes_icm_ossl.c
+        crypto/cipher/aes_gcm_ossl.c
+  )
+else()
+  list(APPEND  CIPHERS_SOURCES_C
+	crypto/cipher/aes.c
+	crypto/cipher/aes_icm.c
+  )
+endif()
+
 set(HASHES_SOURCES_C
 	crypto/hash/auth.c
-	crypto/hash/hmac.c
 	crypto/hash/null_auth.c
-	crypto/hash/sha1.c
 )
+
+if (ENABLE_OPENSSL)
+  list(APPEND HASHES_SOURCES_C
+	crypto/hash/hmac_ossl.c
+  )
+else()
+  list(APPEND  HASHES_SOURCES_C
+	crypto/hash/hmac.c
+	crypto/hash/sha1.c
+  )
+endif()
 
 set(KERNEL_SOURCES_C
 	crypto/kernel/alloc.c
@@ -123,3 +151,12 @@ add_library(srtp2 STATIC
 )
 
 target_include_directories(srtp2 PUBLIC crypto/include include)
+if (ENABLE_OPENSSL)
+  target_link_libraries(srtp2 OpenSSL::Crypto)
+endif()
+
+add_executable(test_srtp test/test_srtp.c)
+target_link_libraries(test_srtp srtp2)
+
+add_executable(srtp_driver test/srtp_driver.c test/util.c test/getopt_s.c)
+target_link_libraries(srtp_driver srtp2)
