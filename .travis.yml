@@ -193,8 +193,8 @@ matrix:
 
       script:
         - export PATH="c:\Program Files (x86)\Microsoft Visual Studio\2017\BuildTools\MSBuild\15.0\Bin":$PATH
-        - wget http://slproweb.com/download/Win64OpenSSL-1_1_1c.msi
-        - cmd.exe /C Win64OpenSSL-1_1_1c.msi /n /passive
+        - wget --quiet http://slproweb.com/download/Win64OpenSSL-1_1_1c.msi
+        - cmd.exe /C "Win64OpenSSL-1_1_1c.msi /n /passive"
         - mkdir build_openssl && cd build_openssl
         - cmake -G "Visual Studio 15 2017" -DENABLE_OPENSSL=ON ..
         - msbuild.exe libsrtp2.sln -p:Configuration=Release
