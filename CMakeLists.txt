@@ -41,7 +41,7 @@ set(ERR_REPORTING_FILE "" CACHE FILEPATH "Use file for logging")
 set(ENABLE_OPENSSL OFF CACHE BOOL "Enable OpenSSL crypto engine")
 set(TEST_APPS ON CACHE BOOL "Build test applications")
 
-if (ENABLE_OPENSSL)
+if(ENABLE_OPENSSL)
   find_package(OpenSSL REQUIRED)
   include_directories(${OPENSSL_INCLUDE_DIR})
 endif()
@@ -61,7 +61,7 @@ set(CIPHERS_SOURCES_C
 	crypto/cipher/null_cipher.c
 )
 
-if (ENABLE_OPENSSL)
+if(ENABLE_OPENSSL)
   list(APPEND CIPHERS_SOURCES_C
 	crypto/cipher/aes_icm_ossl.c
         crypto/cipher/aes_gcm_ossl.c
@@ -78,7 +78,7 @@ set(HASHES_SOURCES_C
 	crypto/hash/null_auth.c
 )
 
-if (ENABLE_OPENSSL)
+if(ENABLE_OPENSSL)
   list(APPEND HASHES_SOURCES_C
 	crypto/hash/hmac_ossl.c
   )
@@ -159,11 +159,18 @@ if(WIN32)
   target_link_libraries(srtp2 ws2_32)
 endif()
 
+install(TARGETS srtp2 DESTINATION lib)
+install(FILES include/srtp.h crypto/include/auth.h crypto/include/cipher.h crypto/include/cipher_types.h DESTINATION include/srtp2)
+
 if(TEST_APPS)
+  enable_testing()
+
   add_executable(test_srtp test/test_srtp.c)
   target_link_libraries(test_srtp srtp2)
+  add_test(test_srtp test_srtp)
 
   add_executable(srtp_driver test/srtp_driver.c test/util.c test/getopt_s.c)
   target_link_libraries(srtp_driver srtp2)
+  add_test(srtp_driver srtp_driver -v)
 endif()
 
