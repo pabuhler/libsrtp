@@ -52,85 +52,85 @@ configure_file(config.h.cmake.in ${CMAKE_CURRENT_SOURCE_DIR}/crypto/include/conf
 add_definitions(-DHAVE_CONFIG_H)
 
 set(SOURCES_C
-        srtp/ekt.c
-	srtp/srtp.c
+  srtp/ekt.c
+  srtp/srtp.c
 )
 
 set(CIPHERS_SOURCES_C
-	crypto/cipher/cipher.c
-	crypto/cipher/null_cipher.c
+  crypto/cipher/cipher.c
+  crypto/cipher/null_cipher.c
 )
 
 if(ENABLE_OPENSSL)
   list(APPEND CIPHERS_SOURCES_C
-	crypto/cipher/aes_icm_ossl.c
-        crypto/cipher/aes_gcm_ossl.c
+    crypto/cipher/aes_icm_ossl.c
+    crypto/cipher/aes_gcm_ossl.c
   )
 else()
   list(APPEND  CIPHERS_SOURCES_C
-	crypto/cipher/aes.c
-	crypto/cipher/aes_icm.c
+    crypto/cipher/aes.c
+    crypto/cipher/aes_icm.c
   )
 endif()
 
 set(HASHES_SOURCES_C
-	crypto/hash/auth.c
-	crypto/hash/null_auth.c
+    crypto/hash/auth.c
+    crypto/hash/null_auth.c
 )
 
 if(ENABLE_OPENSSL)
   list(APPEND HASHES_SOURCES_C
-	crypto/hash/hmac_ossl.c
+    crypto/hash/hmac_ossl.c
   )
 else()
   list(APPEND  HASHES_SOURCES_C
-	crypto/hash/hmac.c
-	crypto/hash/sha1.c
+    crypto/hash/hmac.c
+    crypto/hash/sha1.c
   )
 endif()
 
 set(KERNEL_SOURCES_C
-	crypto/kernel/alloc.c
-	crypto/kernel/crypto_kernel.c
-	crypto/kernel/err.c
-	crypto/kernel/key.c
+  crypto/kernel/alloc.c
+  crypto/kernel/crypto_kernel.c
+  crypto/kernel/err.c
+  crypto/kernel/key.c
 )
 
 set(MATH_SOURCES_C
-	crypto/math/datatypes.c
-	crypto/math/stat.c
+  crypto/math/datatypes.c
+  crypto/math/stat.c
 )
 
 set(REPLAY_SOURCES_C
-	crypto/replay/rdb.c
-	crypto/replay/rdbx.c
-	crypto/replay/ut_sim.c
+  crypto/replay/rdb.c
+  crypto/replay/rdbx.c
+  crypto/replay/ut_sim.c
 )
 
 set(SOURCES_H
-	crypto/include/aes.h
-	crypto/include/aes_icm.h
-	crypto/include/alloc.h
-	crypto/include/auth.h
-	crypto/include/cipher.h
-	crypto/include/cipher_types.h
-	crypto/include/config.h
-	crypto/include/crypto_kernel.h
-	crypto/include/crypto_types.h
-	crypto/include/datatypes.h
-	crypto/include/err.h
-	crypto/include/hmac.h
-	crypto/include/integers.h
-	crypto/include/key.h
-	crypto/include/null_auth.h
-	crypto/include/null_cipher.h
-	crypto/include/rdb.h
-	crypto/include/rdbx.h
-	crypto/include/sha1.h
-	crypto/include/stat.h
-	include/srtp.h
-	include/srtp_priv.h
-	include/ut_sim.h
+  crypto/include/aes.h
+  crypto/include/aes_icm.h
+  crypto/include/alloc.h
+  crypto/include/auth.h
+  crypto/include/cipher.h
+  crypto/include/cipher_types.h
+  crypto/include/config.h
+  crypto/include/crypto_kernel.h
+  crypto/include/crypto_types.h
+  crypto/include/datatypes.h
+  crypto/include/err.h
+  crypto/include/hmac.h
+  crypto/include/integers.h
+  crypto/include/key.h
+  crypto/include/null_auth.h
+  crypto/include/null_cipher.h
+  crypto/include/rdb.h
+  crypto/include/rdbx.h
+  crypto/include/sha1.h
+  crypto/include/stat.h
+  include/srtp.h
+  include/srtp_priv.h
+  include/ut_sim.h
 )
 
 source_group("src" FILES ${SOURCES_C})
@@ -142,13 +142,13 @@ source_group("src\\Replay" FILES ${REPLAY_SOURCES_C})
 source_group("include" FILES ${SOURCES_H})
 
 add_library(srtp2 STATIC
-	${SOURCES_C}
-	${CIPHERS_SOURCES_C}
-	${HASHES_SOURCES_C}
-	${KERNEL_SOURCES_C}
-	${MATH_SOURCES_C}
-	${REPLAY_SOURCES_C}
-	${SOURCES_H}
+  ${SOURCES_C}
+  ${CIPHERS_SOURCES_C}
+  ${HASHES_SOURCES_C}
+  ${KERNEL_SOURCES_C}
+  ${MATH_SOURCES_C}
+  ${REPLAY_SOURCES_C}
+  ${SOURCES_H}
 )
 
 target_include_directories(srtp2 PUBLIC crypto/include include)
@@ -160,7 +160,10 @@ if(WIN32)
 endif()
 
 install(TARGETS srtp2 DESTINATION lib)
-install(FILES include/srtp.h crypto/include/auth.h crypto/include/cipher.h crypto/include/cipher_types.h DESTINATION include/srtp2)
+install(FILES include/srtp.h crypto/include/auth.h
+  crypto/include/cipher.h
+  crypto/include/cipher_types.h
+  DESTINATION include/srtp2)
 
 if(TEST_APPS)
   enable_testing()
@@ -169,8 +172,8 @@ if(TEST_APPS)
   target_link_libraries(test_srtp srtp2)
   add_test(test_srtp test_srtp)
 
-  add_executable(srtp_driver test/srtp_driver.c test/util.c test/getopt_s.c)
+  add_executable(srtp_driver test/srtp_driver.c
+    test/util.c test/getopt_s.c)
   target_link_libraries(srtp_driver srtp2)
   add_test(srtp_driver srtp_driver -v)
 endif()
-
