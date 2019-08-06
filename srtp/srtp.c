@@ -3289,7 +3289,6 @@ void srtp_crypto_policy_set_aes_cm_256_null_auth(srtp_crypto_policy_t *p)
     p->sec_serv = sec_serv_conf;
 }
 
-#ifdef GCM
 void srtp_crypto_policy_set_aes_cm_192_hmac_sha1_80(srtp_crypto_policy_t *p)
 {
     /*
@@ -3410,8 +3409,6 @@ void srtp_crypto_policy_set_aes_gcm_256_16_auth(srtp_crypto_policy_t *p)
     p->auth_tag_len = 16; /* 16 octet tag length */
     p->sec_serv = sec_serv_conf_and_auth;
 }
-
-#endif
 
 /*
  * secure rtcp functions
