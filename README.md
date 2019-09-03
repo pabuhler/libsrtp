@@ -5,6 +5,8 @@ gone
 <a name="introduction-to-libsrtp"></a>
 # Introduction to libSRTP
 
+[![OSS-Fuzz Status](https://oss-fuzz-build-logs.storage.googleapis.com/badges/systemd.svg)](https://oss-fuzz-build-logs.storage.googleapis.com/index.html#libsrtp)<br/>
+
 This package provides an implementation of the Secure Real-time
 Transport Protocol (SRTP), the Universal Security Transform (UST), and
 a supporting cryptographic kernel. The SRTP API is documented in include/srtp.h,
