@@ -105,6 +105,7 @@ matrix:
 
     # osx build with openssl
     - os: osx
+      osx_image: xcode11.2
       env:
         - TEST="osx openssl"
       before_install:
