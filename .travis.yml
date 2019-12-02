@@ -245,9 +245,8 @@ matrix:
         - cmake -DCMAKE_TOOLCHAIN_FILE=../ios.toolchain.cmake  -DPLATFORM=OS64 ..
         - make
         - cd ..
-        - SYSROOT=$(xcrun --sdk iphoneos --show-sdk-path)
-        - CFLAGS="-arch arm64 --sysroot=$SYSROOT -miphoneos-version-min=8.0 -fembed-bitcode"
-          LDFLAGS="-arch arm64 --sysroot=$SYSROOT -miphoneos-version-min=8.0 -fembed-bitcode"
+        - CFLAGS="-arch arm64 --sysroot=$(xcrun --sdk iphoneos --show-sdk-path) -miphoneos-version-min=8.0 -fembed-bitcode"
+          LDFLAGS="-arch arm64 --sysroot=$(xcrun --sdk iphoneos --show-sdk-path) -miphoneos-version-min=8.0 -fembed-bitcode"
           AR="$(xcrun --find --sdk iphoneos ar)"
           AS="$(xcrun --find --sdk iphoneos as)"
           CC="$(xcrun --find --sdk iphoneos clang)"
