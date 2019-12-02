@@ -111,12 +111,12 @@ matrix:
       before_install:
             - brew install openssl
       script:
-        - PKG_CONFIG_PATH=/usr/local/opt/openssl/lib/pkgconfig EXTRA_CFLAGS=-Werror ./configure --enable-openssl
+        - EXTRA_CFLAGS=-Werror ./configure --enable-openssl
         - make
         - make runtest
         - make distclean
         - mkdir build && cd build
-        - cmake -DOPENSSL_ROOT_DIR=/usr/local/opt/openssl -DENABLE_OPENSSL=ON ..
+        - cmake -DENABLE_OPENSSL=ON ..
         - make
         - make test
 
