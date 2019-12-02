@@ -210,3 +210,18 @@ matrix:
         - cmake -G "Visual Studio 15 2017" -DBUILD_SHARED_LIBS=ON ..
         - msbuild.exe libsrtp2.sln -p:Configuration=Release
         - msbuild.exe RUN_TESTS.vcxproj -p:Configuration=Release
+
+ # android build
+    - os: linux
+      env:
+        - TEST="android (camke / configure)"
+
+      script:
+        - wget https://dl.google.com/android/repository/android-ndk-r20b-linux-x86_64.zip
+        - unzip -qq android-ndk-r20b-linux-x86_64.zip
+        - ANDROID_NDK=`pwd`/android-ndk-r20b
+        - mkdir build_android
+        - cd build_android
+        - cmake -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK/build/cmake/android.toolchain.cmake -DANDROID_ABI=arm64-v8a ..
+        - make
+        - cd ..
