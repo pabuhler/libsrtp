@@ -210,7 +210,7 @@ matrix:
         - msbuild.exe libsrtp2.sln -p:Configuration=Release
         - msbuild.exe RUN_TESTS.vcxproj -p:Configuration=Release
 
- # android build
+    # android build
     - os: linux
       env:
         - TEST="android"
