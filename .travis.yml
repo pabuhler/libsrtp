@@ -215,7 +215,7 @@ matrix:
       env:
         - TEST="android"
       script:
-        - wget https://dl.google.com/android/repository/android-ndk-r20b-linux-x86_64.zip
+        - wget -q https://dl.google.com/android/repository/android-ndk-r20b-linux-x86_64.zip
         - unzip -qq android-ndk-r20b-linux-x86_64.zip
         - ANDROID_NDK=`pwd`/android-ndk-r20b
         - mkdir build_android
@@ -223,7 +223,6 @@ matrix:
         - cmake -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK/build/cmake/android.toolchain.cmake -DANDROID_ABI=arm64-v8a ..
         - make
         - cd ..
-        - make distclean
         - TOOLCHAIN=$ANDROID_NDK/toolchains/llvm/prebuilt/linux-x86_64
           AR=$TOOLCHAIN/bin/aarch64-linux-android-ar
           AS=$TOOLCHAIN/bin/aarch64-linux-android-as
