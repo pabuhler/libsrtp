@@ -224,13 +224,13 @@ matrix:
         - make
         - cd ..
         - make distclean
-        - TOOLCHAIN=$ANDROID_NDK/toolchains/llvm/prebuilt/linux-x86_64 \
-          AR=$TOOLCHAIN/bin/aarch64-linux-android-ar \
-          AS=$TOOLCHAIN/bin/aarch64-linux-android-as \
-          CC=$TOOLCHAIN/bin/aarch64-linux-android21-clang \
-          CXX=$TOOLCHAIN/bin/aarch64-linux-android21-clang++ \
-          LD=$TOOLCHAIN/bin/aarch64-linux-android-ld \
-          RANLIB=$TOOLCHAIN/bin/aarch64-linux-android-ranlib \
-          STRIP=$TOOLCHAIN/bin/aarch64-linux-android-strip \
-        - ./configure --host aarch64-linux-android
+        - TOOLCHAIN=$ANDROID_NDK/toolchains/llvm/prebuilt/linux-x86_64
+          AR=$TOOLCHAIN/bin/aarch64-linux-android-ar
+          AS=$TOOLCHAIN/bin/aarch64-linux-android-as
+          CC=$TOOLCHAIN/bin/aarch64-linux-android21-clang
+          CXX=$TOOLCHAIN/bin/aarch64-linux-android21-clang++
+          LD=$TOOLCHAIN/bin/aarch64-linux-android-ld
+          RANLIB=$TOOLCHAIN/bin/aarch64-linux-android-ranlib
+          STRIP=$TOOLCHAIN/bin/aarch64-linux-android-strip
+          ./configure --host aarch64-linux-android
         - make
