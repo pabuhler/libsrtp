@@ -242,6 +242,6 @@ matrix:
       script:
         - wget -q https://raw.githubusercontent.com/leetal/ios-cmake/master/ios.toolchain.cmake
         - mkdir build && cd build
-        - cmake -DCMAKE_TOOLCHAIN_FILE=../ios.toolchain.cmake.txt  -DPLATFORM=OS64 ..
+        - cmake -DCMAKE_TOOLCHAIN_FILE=../ios.toolchain.cmake  -DPLATFORM=OS64 ..
         - make
         - cd ..
