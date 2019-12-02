@@ -111,12 +111,12 @@ matrix:
       before_install:
             - brew install openssl
       script:
-        - EXTRA_CFLAGS=-Werror ./configure --enable-openssl
+        - PKG_CONFIG_PATH=$(brew --prefix opeenssl)/lib/pkgconfig EXTRA_CFLAGS=-Werror ./configure --enable-openssl
         - make
         - make runtest
         - make distclean
         - mkdir build && cd build
-        - cmake -DENABLE_OPENSSL=ON ..
+        - cmake -DOPENSSL_ROOT_DIR=$(brew --prefix opeenssl) -DENABLE_OPENSSL=ON ..
         - make
         - make test
 
@@ -126,7 +126,7 @@ matrix:
       env:
         - TEST="osx nss"
       script:
-        - PKG_CONFIG_PATH=/usr/local/opt/nss/lib/pkgconfig EXTRA_CFLAGS=-Werror ./configure --enable-nss
+        - PKG_CONFIG_PATH=$(brew --prefix nss)/lib/pkgconfig EXTRA_CFLAGS=-Werror ./configure --enable-nss
         - make
         - make runtest
 
