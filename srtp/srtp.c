@@ -740,6 +740,7 @@ static srtp_err_status_t srtp_kdf_clear(srtp_kdf_t *kdf)
     status = srtp_cipher_dealloc(kdf->cipher);
     if (status)
         return status;
+    srtp_cipher_dealloc(kdf->cipher);
     kdf->cipher = NULL;
     return srtp_err_status_ok;
 }
