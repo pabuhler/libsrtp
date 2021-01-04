@@ -736,10 +736,10 @@ static srtp_err_status_t srtp_kdf_generate(srtp_kdf_t *kdf,
 
 static srtp_err_status_t srtp_kdf_clear(srtp_kdf_t *kdf)
 {
-    //srtp_err_status_t status;
-    //status = srtp_cipher_dealloc(kdf->cipher);
-    //if (status)
-    //    return status;
+    srtp_err_status_t status;
+    status = srtp_cipher_dealloc(kdf->cipher);
+    if (status)
+        return status;
     kdf->cipher = NULL;
     return srtp_err_status_ok;
 }
