@@ -1,4 +1,5 @@
-name: Fuzzer
+# This will verify that the fuzzer builds but will not run it
+name: Fuzzer build check
 
 on:
   push:
