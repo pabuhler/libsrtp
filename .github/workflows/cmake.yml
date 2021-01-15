@@ -13,9 +13,9 @@ jobs:
       run: cmake -E make_directory ${{github.workspace}}/build
 
     - name: Configure CMake
-      shell: bash
       working-directory: ${{github.workspace}}/build
-      run: cmake $GITHUB_WORKSPACE
+      shell: bash
+      run: cmake $GITHUB_WORKSPACE -DBUILD_WITH_SANITIZERS=TRUE
 
     - name: Build
       working-directory: ${{github.workspace}}/build
@@ -25,4 +25,4 @@ jobs:
     - name: Test
       working-directory: ${{github.workspace}}/build
       shell: bash
-      run: ctest
+      run: CTEST_OUTPUT_ON_FAILURE=1 ctest
