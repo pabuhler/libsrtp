@@ -5,6 +5,8 @@ on: [push]
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      CTEST_OUTPUT_ON_FAILURE: 1
 
     steps:
     - uses: actions/checkout@v2
@@ -25,4 +27,4 @@ jobs:
     - name: Test
       working-directory: ${{github.workspace}}/build
       shell: bash
-      run: CTEST_OUTPUT_ON_FAILURE=1 ctest
+      run: ctest
