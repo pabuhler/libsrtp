@@ -2,6 +2,7 @@ name: AutoTools CI
 
 on:
   push:
+    branches: [ master ]
   pull_request:
     branches: [ master ]
 
@@ -54,7 +55,7 @@ jobs:
       run: cmake -E make_directory ${{github.workspace}}/build
 
     - name: Configure
-      run: EXTRA_CFLAGS=-Werror ./configure ${{ matrix.configure-crypto-enable}} ${{configure.configure-crypto-dir}}
+      run: EXTRA_CFLAGS=-Werror ./configure ${{ matrix.configure-crypto-enable}} ${{env.configure-crypto-dir}}
 
     - name: Build
       run: make
