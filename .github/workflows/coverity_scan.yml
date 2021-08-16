@@ -18,21 +18,22 @@ jobs:
       env:
          TOKEN: ${{ secrets.COVERITY_SCAN_TOKEN }}
     
+    - name: Configure
+      run: ./configure
+        
     - name: Build with cov-build
       run: |
-            xport PATH=`pwd`/cov-analysis-linux64/bin:$PATH
-            cd build
+            export PATH=`pwd`/cov-analysis-linux64/bin:$PATH
             cov-build --dir cov-int make
     
     - name: Submit the result to Coverity Scan
       run: |
-            cd build
-            tar czvf cutter.tgz cov-int
+            tar czvf libsrtp.tgz cov-int
             curl \
                 --form project=cisco-libSRTP \
                 --form token=$TOKEN \
                 --form email=pabuhler@cisco.com \
-                --form file=@cutter.tgz \
+                --form file=@libsrtp.tgz \
                 --form version=2 \
                 --form description="libSRTP" \
                 https://scan.coverity.com/builds?project=cisco-libSRTP
