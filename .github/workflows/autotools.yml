@@ -18,6 +18,8 @@ jobs:
             configure-crypto-enable: ""
           - crypto: openssl
             configure-crypto-enable: "--enable-openssl"
+          - crypto: openssl3
+            configure-crypto-enable: "--enable-openssl"
           - crypto: nss
             configure-crypto-enable: "--enable-nss"
 
@@ -37,6 +39,10 @@ jobs:
     - name: Setup macOS OpenSSL
       if: matrix.os == 'macos-latest' && matrix.crypto == 'openssl'
       run: echo "configure-env=PKG_CONFIG_PATH=$(brew --prefix openssl@1.1)/lib/pkgconfig" >> $GITHUB_ENV
+      
+    - name: Setup macOS OpenSSL3
+      if: matrix.os == 'macos-latest' && matrix.crypto == 'openssl3'
+      run: echo "configure-env=PKG_CONFIG_PATH=$(brew --prefix openssl@3)/lib/pkgconfig" >> $GITHUB_ENV
       
     - name: Setup macOS NSS
       if:  matrix.os == 'macos-latest' && matrix.crypto == 'nss'
