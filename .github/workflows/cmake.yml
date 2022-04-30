@@ -54,7 +54,9 @@ jobs:
       
     - name: Setup macOS OpenSSL3
       if: matrix.os == 'macos-latest' && matrix.crypto == 'openssl3'
-      run: echo "cmake-crypto-dir=-DOPENSSL_ROOT_DIR=$(brew --prefix openssl@3)" >> $GITHUB_ENV
+      run: |
+        brew install openssl@3
+        echo "cmake-crypto-dir=-DOPENSSL_ROOT_DIR=$(brew --prefix openssl@3)" >> $GITHUB_ENV
       
     - name: Setup macOS NSS
       if:  matrix.os == 'macos-latest' && matrix.crypto == 'nss'
