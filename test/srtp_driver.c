@@ -61,6 +61,7 @@
 #define PRINT_REFERENCE_PACKET 1
 
 srtp_err_status_t srtp_validate(void);
+srtp_err_status_t srtp_validate_non_inplace(void);
 
 srtp_err_status_t srtp_validate_null(void);
 
@@ -450,6 +451,14 @@ int main(int argc, char *argv[])
         printf("testing srtp_protect and srtp_unprotect against "
                "reference packet\n");
         if (srtp_validate() == srtp_err_status_ok) {
+            printf("passed\n\n");
+        } else {
+            printf("failed\n");
+            exit(1);
+        }
+        printf("testing srtp_protect and srtp_unprotect non inplace against "
+               "reference packet\n");
+        if (srtp_validate_non_inplace() == srtp_err_status_ok) {
             printf("passed\n\n");
         } else {
             printf("failed\n");
@@ -1815,6 +1824,171 @@ srtp_err_status_t srtp_validate(void)
     }
 
     if (srtp_octet_string_is_eq(srtcp_ciphertext, rtcp_plaintext_ref, len)) {
+        return srtp_err_status_fail;
+    }
+
+    status = srtp_dealloc(srtp_snd);
+    if (status) {
+        return status;
+    }
+
+    status = srtp_dealloc(srtp_recv);
+    if (status) {
+        return status;
+    }
+
+    return srtp_err_status_ok;
+}
+
+srtp_err_status_t srtp_validate_non_inplace(void)
+{
+    // clang-format off
+    const uint8_t srtp_plaintext_ref[28] = {
+        0x80, 0x0f, 0x12, 0x34, 0xde, 0xca, 0xfb, 0xad,
+        0xca, 0xfe, 0xba, 0xbe, 0xab, 0xab, 0xab, 0xab,
+        0xab, 0xab, 0xab, 0xab, 0xab, 0xab, 0xab, 0xab,
+        0xab, 0xab, 0xab, 0xab
+    };
+    const uint8_t srtp_ciphertext_ref[38] = {
+        0x80, 0x0f, 0x12, 0x34, 0xde, 0xca, 0xfb, 0xad,
+        0xca, 0xfe, 0xba, 0xbe, 0x4e, 0x55, 0xdc, 0x4c,
+        0xe7, 0x99, 0x78, 0xd8, 0x8c, 0xa4, 0xd2, 0x15,
+        0x94, 0x9d, 0x24, 0x02, 0xb7, 0x8d, 0x6a, 0xcc,
+        0x99, 0xea, 0x17, 0x9b, 0x8d, 0xbb
+    };
+    const uint8_t rtcp_plaintext_ref[24] = {
+        0x81, 0xc8, 0x00, 0x0b, 0xca, 0xfe, 0xba, 0xbe,
+        0xab, 0xab, 0xab, 0xab, 0xab, 0xab, 0xab, 0xab,
+        0xab, 0xab, 0xab, 0xab, 0xab, 0xab, 0xab, 0xab,
+    };
+    const uint8_t srtcp_ciphertext_ref[38] = {
+        0x81, 0xc8, 0x00, 0x0b, 0xca, 0xfe, 0xba, 0xbe,
+        0x71, 0x28, 0x03, 0x5b, 0xe4, 0x87, 0xb9, 0xbd,
+        0xbe, 0xf8, 0x90, 0x41, 0xf9, 0x77, 0xa5, 0xa8,
+        0x80, 0x00, 0x00, 0x01, 0x99, 0x3e, 0x08, 0xcd,
+        0x54, 0xd6, 0xc1, 0x23, 0x07, 0x98
+    };
+    // clang-format on
+
+    uint8_t buffer[100] = { 0 };
+
+    srtp_t srtp_snd, srtp_recv;
+    srtp_err_status_t status;
+    int len;
+    srtp_policy_t policy;
+
+    /*
+     * create a session with a single stream using the default srtp
+     * policy and with the SSRC value 0xcafebabe
+     */
+    memset(&policy, 0, sizeof(policy));
+    srtp_crypto_policy_set_rtp_default(&policy.rtp);
+    srtp_crypto_policy_set_rtcp_default(&policy.rtcp);
+    policy.ssrc.type = ssrc_specific;
+    policy.ssrc.value = 0xcafebabe;
+    policy.key = test_key;
+    policy.deprecated_ekt = NULL;
+    policy.window_size = 128;
+    policy.allow_repeat_tx = 0;
+    policy.next = NULL;
+
+    status = srtp_create(&srtp_snd, &policy);
+    if (status) {
+        return status;
+    }
+
+    /*
+     * protect plaintext, then compare with ciphertext
+     */
+    len = sizeof(buffer);
+    status = srtp_protect2(srtp_snd, srtp_plaintext_ref,
+                           sizeof(srtp_plaintext_ref), buffer, &len, 0, 0);
+    if (status || (len != sizeof(srtp_ciphertext_ref))) {
+        return srtp_err_status_fail;
+    }
+
+    debug_print(mod_driver, "ciphertext:\n  %s",
+                octet_string_hex_string(buffer, len));
+    debug_print(mod_driver, "ciphertext reference:\n  %s",
+                octet_string_hex_string(srtp_ciphertext_ref,
+                                        sizeof(srtp_ciphertext_ref)));
+
+    if (srtp_octet_string_is_eq(buffer, srtp_ciphertext_ref, len)) {
+        return srtp_err_status_fail;
+    }
+
+    /*
+     * protect plaintext rtcp, then compare with srtcp ciphertext
+     */
+    len = sizeof(buffer);
+    status = srtp_protect_rtcp2(srtp_snd, rtcp_plaintext_ref,
+                                sizeof(rtcp_plaintext_ref), buffer, &len, 0, 0);
+    if (status || (len != sizeof(srtcp_ciphertext_ref))) {
+        return srtp_err_status_fail;
+    }
+
+    debug_print(mod_driver, "srtcp ciphertext:\n  %s",
+                octet_string_hex_string(buffer, len));
+    debug_print(mod_driver, "srtcp ciphertext reference:\n  %s",
+                octet_string_hex_string(srtcp_ciphertext_ref, len));
+
+    if (srtp_octet_string_is_eq(buffer, srtcp_ciphertext_ref, len)) {
+        return srtp_err_status_fail;
+    }
+
+    /*
+     * create a receiver session context comparable to the one created
+     * above - we need to do this so that the replay checking doesn't
+     * complain
+     */
+    status = srtp_create(&srtp_recv, &policy);
+    if (status) {
+        return status;
+    }
+
+    /*
+     * unprotect ciphertext, then compare with plaintext
+     */
+    len = sizeof(buffer);
+    status = srtp_unprotect2(srtp_recv, srtp_ciphertext_ref,
+                             sizeof(srtp_ciphertext_ref), buffer, &len, 0);
+    if (status || (len != sizeof(srtp_plaintext_ref))) {
+        return status;
+    }
+
+    debug_print(mod_driver, "plaintext:\n  %s",
+                octet_string_hex_string(buffer, len));
+    debug_print(mod_driver, "plaintext reference:\n  %s",
+                octet_string_hex_string(srtp_plaintext_ref,
+                                        sizeof(srtp_plaintext_ref)));
+
+    if (srtp_octet_string_is_eq(buffer, srtp_plaintext_ref, len)) {
+        return srtp_err_status_fail;
+    }
+
+    /*
+     * unprotect srtcp ciphertext, then compare with rtcp plaintext
+     */
+    len = sizeof(buffer);
+    status =
+        srtp_unprotect_rtcp2(srtp_recv, srtcp_ciphertext_ref,
+                             sizeof(srtcp_ciphertext_ref), buffer, &len, 0);
+    if (status || (len != sizeof(rtcp_plaintext_ref))) {
+        return status;
+    }
+
+    printf("rtcp plaintext:\n  %s", octet_string_hex_string(buffer, len));
+    printf("rtcp plaintext reference:\n  %s",
+           octet_string_hex_string(rtcp_plaintext_ref,
+                                   sizeof(rtcp_plaintext_ref)));
+
+    debug_print(mod_driver, "rtcp plaintext:\n  %s",
+                octet_string_hex_string(buffer, len));
+    debug_print(mod_driver, "rtcp plaintext reference:\n  %s",
+                octet_string_hex_string(rtcp_plaintext_ref,
+                                        sizeof(rtcp_plaintext_ref)));
+
+    if (srtp_octet_string_is_eq(buffer, rtcp_plaintext_ref, len)) {
         return srtp_err_status_fail;
     }
 

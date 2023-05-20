@@ -116,13 +116,18 @@ static srtp_err_status_t srtp_null_cipher_set_iv(void *cv,
 }
 
 static srtp_err_status_t srtp_null_cipher_encrypt(void *cv,
-                                                  unsigned char *buf,
-                                                  unsigned int *bytes_to_encr)
+                                                  const uint8_t *src,
+                                                  unsigned int src_len,
+                                                  uint8_t *dst,
+                                                  unsigned int *dst_len)
 {
-    /* srtp_null_cipher_ctx_t *c = (srtp_null_cipher_ctx_t *)cv; */
     (void)cv;
-    (void)buf;
-    (void)bytes_to_encr;
+    (void)src;
+    (void)src_len;
+    (void)dst;
+    // pabu will need memcpy for non overlaping
+    *dst_len = src_len;
+
     return srtp_err_status_ok;
 }
 

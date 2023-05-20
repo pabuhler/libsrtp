@@ -371,7 +371,7 @@ srtp_err_status_t cipher_driver_test_buffering(srtp_cipher_t *c)
             return status;
 
         /* generate 'reference' value by encrypting all at once */
-        status = srtp_cipher_encrypt(c, buffer0, &buflen);
+        status = srtp_cipher_encrypt(c, buffer0, buflen, buffer0, &buflen);
         if (status)
             return status;
 
@@ -391,7 +391,7 @@ srtp_err_status_t cipher_driver_test_buffering(srtp_cipher_t *c)
             if (current + len > end)
                 len = (unsigned)(end - current);
 
-            status = srtp_cipher_encrypt(c, current, &len);
+            status = srtp_cipher_encrypt(c, current, len, current, &len);
             if (status)
                 return status;
 
@@ -543,7 +543,7 @@ uint64_t cipher_array_bits_per_second(srtp_cipher_t *cipher_array[],
         srtp_cipher_set_iv(cipher_array[cipher_index], (uint8_t *)&nonce,
                            srtp_direction_encrypt);
         srtp_cipher_encrypt(cipher_array[cipher_index], enc_buf,
-                            &octets_to_encrypt);
+                            octets_to_encrypt, enc_buf, &octets_to_encrypt);
 
         /* choose a cipher at random from the array*/
         cipher_index = (*((uint32_t *)enc_buf)) % num_cipher;
