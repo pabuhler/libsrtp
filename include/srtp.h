@@ -194,7 +194,9 @@ typedef enum {
                                         /**< invalid                         */
     srtp_err_status_pkt_idx_old = 26,   /**< packet index is too old to      */
                                         /**< consider                        */
-    srtp_err_status_pkt_idx_adv = 27    /**< packet index advanced, reset    */
+    srtp_err_status_pkt_idx_adv = 27,   /**< packet index advanced, reset    */
+                                        /**< needed                          */
+    srtp_err_status_buf_space = 28      /**< packet index advanced, reset    */
                                         /**< needed                          */
 } srtp_err_status_t;
 
@@ -460,6 +462,13 @@ srtp_err_status_t srtp_protect_mki(srtp_ctx_t *ctx,
                                    int *pkt_octet_len,
                                    unsigned int use_mki,
                                    unsigned int mki_index);
+srtp_err_status_t srtp_protect2(srtp_t ctx,
+                                const void *rtp,
+                                int rtp_len,
+                                void *srtp,
+                                int *srtp_len,
+                                unsigned int use_mki,
+                                unsigned int mki_index);
 
 /**
  * @brief srtp_unprotect() is the Secure RTP receiver-side packet
@@ -553,6 +562,12 @@ srtp_err_status_t srtp_unprotect_mki(srtp_t ctx,
                                      void *srtp_hdr,
                                      int *len_ptr,
                                      unsigned int use_mki);
+srtp_err_status_t srtp_unprotect2(srtp_t ctx,
+                                  const void *srtp,
+                                  int srtp_len,
+                                  void *rtp,
+                                  int *rtp_len,
+                                  unsigned int use_mki);
 
 /**
  * @brief srtp_create() allocates and initializes an SRTP session.
@@ -1310,9 +1325,7 @@ void srtp_append_salt_to_key(unsigned char *key,
  *    - [other]                  if there was a failure in
  *                               the cryptographic mechanisms.
  */
-srtp_err_status_t srtp_protect_rtcp(srtp_t ctx,
-                                    void *rtcp_hdr,
-                                    int *pkt_octet_len);
+srtp_err_status_t srtp_protect_rtcp(srtp_t ctx, void *rtcp, int *pkt_octet_len);
 
 /**
  * @brief srtp_protect_rtcp_mki() is the Secure RTCP sender-side packet
@@ -1364,6 +1377,13 @@ srtp_err_status_t srtp_protect_rtcp_mki(srtp_t ctx,
                                         int *pkt_octet_len,
                                         unsigned int use_mki,
                                         unsigned int mki_index);
+srtp_err_status_t srtp_protect_rtcp2(srtp_t ctx,
+                                     const void *rtcp,
+                                     int rtcp_len,
+                                     void *srtcp,
+                                     int *srtcp_len,
+                                     unsigned int use_mki,
+                                     unsigned int mki_index);
 
 /**
  * @brief srtp_unprotect_rtcp() is the Secure RTCP receiver-side packet
@@ -1456,6 +1476,12 @@ srtp_err_status_t srtp_unprotect_rtcp_mki(srtp_t ctx,
                                           void *srtcp_hdr,
                                           int *pkt_octet_len,
                                           unsigned int use_mki);
+srtp_err_status_t srtp_unprotect_rtcp2(srtp_t ctx,
+                                       const void *srtcp,
+                                       int srtcp_len,
+                                       void *rtcp,
+                                       int *rtcp_len,
+                                       unsigned int use_mki);
 
 /**
  * @}

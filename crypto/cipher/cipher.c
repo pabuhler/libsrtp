@@ -105,29 +105,34 @@ srtp_err_status_t srtp_cipher_output(srtp_cipher_t *c,
     octet_string_set_to_zero(buffer, *num_octets_to_output);
 
     /* exor keystream into buffer */
-    return (((c)->type)->encrypt(((c)->state), buffer, num_octets_to_output));
+    return (((c)->type)->encrypt(((c)->state), buffer, *num_octets_to_output,
+                                 buffer, num_octets_to_output));
 }
 
 srtp_err_status_t srtp_cipher_encrypt(srtp_cipher_t *c,
-                                      uint8_t *buffer,
-                                      uint32_t *num_octets_to_output)
+                                      const uint8_t *src,
+                                      unsigned int src_len,
+                                      uint8_t *dst,
+                                      unsigned int *dst_len)
 {
     if (!c || !c->type || !c->state) {
         return (srtp_err_status_bad_param);
     }
 
-    return (((c)->type)->encrypt(((c)->state), buffer, num_octets_to_output));
+    return (((c)->type)->encrypt(((c)->state), src, src_len, dst, dst_len));
 }
 
 srtp_err_status_t srtp_cipher_decrypt(srtp_cipher_t *c,
-                                      uint8_t *buffer,
-                                      uint32_t *num_octets_to_output)
+                                      const uint8_t *src,
+                                      unsigned int src_len,
+                                      uint8_t *dst,
+                                      unsigned int *dst_len)
 {
     if (!c || !c->type || !c->state) {
         return (srtp_err_status_bad_param);
     }
 
-    return (((c)->type)->decrypt(((c)->state), buffer, num_octets_to_output));
+    return (((c)->type)->decrypt(((c)->state), src, src_len, dst, dst_len));
 }
 
 srtp_err_status_t srtp_cipher_get_tag(srtp_cipher_t *c,
@@ -294,7 +299,7 @@ srtp_err_status_t srtp_cipher_type_test(
 
         /* encrypt */
         len = test_case->plaintext_length_octets;
-        status = srtp_cipher_encrypt(c, buffer, &len);
+        status = srtp_cipher_encrypt(c, buffer, len, buffer, &len);
         if (status) {
             srtp_cipher_dealloc(c);
             return status;
@@ -395,7 +400,7 @@ srtp_err_status_t srtp_cipher_type_test(
 
         /* decrypt */
         len = test_case->ciphertext_length_octets;
-        status = srtp_cipher_decrypt(c, buffer, &len);
+        status = srtp_cipher_decrypt(c, buffer, len, buffer, &len);
         if (status) {
             srtp_cipher_dealloc(c);
             return status;
@@ -517,7 +522,7 @@ srtp_err_status_t srtp_cipher_type_test(
 
         /* encrypt buffer with cipher */
         plaintext_len = length;
-        status = srtp_cipher_encrypt(c, buffer, &length);
+        status = srtp_cipher_encrypt(c, buffer, length, buffer, &length);
         if (status) {
             srtp_cipher_dealloc(c);
             return status;
@@ -567,7 +572,7 @@ srtp_err_status_t srtp_cipher_type_test(
                         srtp_octet_string_hex_string(
                             test_case->aad, test_case->aad_length_octets));
         }
-        status = srtp_cipher_decrypt(c, buffer, &length);
+        status = srtp_cipher_decrypt(c, buffer, length, buffer, &length);
         if (status) {
             srtp_cipher_dealloc(c);
             return status;
@@ -660,7 +665,8 @@ uint64_t srtp_cipher_bits_per_second(srtp_cipher_t *c,
         }
 
         // Encrypt the buffer
-        if (srtp_cipher_encrypt(c, enc_buf, &len) != srtp_err_status_ok) {
+        if (srtp_cipher_encrypt(c, enc_buf, len, enc_buf, &len) !=
+            srtp_err_status_ok) {
             srtp_crypto_free(enc_buf);
             return 0;
         }
