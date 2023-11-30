@@ -211,7 +211,9 @@ typedef enum {
                                         /**< invalid                         */
     srtp_err_status_pkt_idx_old = 26,   /**< packet index is too old to      */
                                         /**< consider                        */
-    srtp_err_status_pkt_idx_adv = 27    /**< packet index advanced, reset    */
+    srtp_err_status_pkt_idx_adv = 27,   /**< packet index advanced, reset    */
+                                        /**< needed                          */
+    srtp_err_status_buf_space = 28      /**< packet index advanced, reset    */
                                         /**< needed                          */
 } srtp_err_status_t;
 
@@ -1340,9 +1342,7 @@ void srtp_append_salt_to_key(unsigned char *key,
  *    - [other]                  if there was a failure in
  *                               the cryptographic mechanisms.
  */
-srtp_err_status_t srtp_protect_rtcp(srtp_t ctx,
-                                    void *rtcp_hdr,
-                                    int *pkt_octet_len);
+srtp_err_status_t srtp_protect_rtcp(srtp_t ctx, void *rtcp, int *pkt_octet_len);
 
 /**
  * @brief srtp_protect_rtcp_mki() is the Secure RTCP sender-side packet

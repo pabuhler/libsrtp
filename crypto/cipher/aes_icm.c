@@ -295,13 +295,20 @@ static void srtp_aes_icm_advance(srtp_aes_icm_ctx_t *c)
  */
 
 static srtp_err_status_t srtp_aes_icm_encrypt(void *cv,
-                                              unsigned char *buf,
-                                              unsigned int *enc_len)
+                                              const uint8_t *src,
+                                              unsigned int src_len,
+                                              uint8_t *dst,
+                                              unsigned int *dst_len)
 {
     srtp_aes_icm_ctx_t *c = (srtp_aes_icm_ctx_t *)cv;
-    unsigned int bytes_to_encr = *enc_len;
+    unsigned int bytes_to_encr = *dst_len;
     unsigned int i;
     uint32_t *b;
+
+    memcpy(dst, src, src_len);
+    *dst_len = src_len;
+
+    unsigned char *buf = dst;
 
     /* check that there's enough segment left*/
     unsigned int bytes_of_new_keystream = bytes_to_encr - c->bytes_in_buffer;
