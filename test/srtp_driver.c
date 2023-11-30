@@ -231,6 +231,95 @@ srtp_err_status_t __srtp_unprotect_rtcp(srtp_ctx_t *ctx,
     return __srtp_unprotect_rtcp_mki(ctx, srtcp_hdr, pkt_octet_len, 0);
 }
 
+// get rid of this call,  just use mki with false
+
+#if 0
+//----------------------------------------------------------------
+srtp_err_status_t call_srtp_protect(srtp_ctx_t *ctx,
+                                    void *rtp_hdr,
+                                    int *pkt_octet_len)
+{
+    if (0) {
+        return srtp_protect(ctx, rtp_hdr, pkt_octet_len);
+    } else {
+        uint8_t out_buf[4048];
+        int out_len = sizeof(out_buf);
+        srtp_err_status_t status = srtp_protect2(ctx, rtp_hdr, *pkt_octet_len,
+                                                 out_buf, &out_len, 0, 0);
+        if (status == srtp_err_status_ok) {
+            memcpy(rtp_hdr, out_buf, out_len);
+            *pkt_octet_len = out_len;
+        } else {
+            printf("FFFFFFFFFFFFFFFFFFFFFFFFFF\n");
+        }
+        return status;
+    }
+}
+
+srtp_err_status_t call_srtp_unprotect(srtp_ctx_t *ctx,
+                                      void *srtp_hdr,
+                                      int *pkt_octet_len)
+{
+    if (0) {
+        return srtp_unprotect(ctx, srtp_hdr, pkt_octet_len);
+    } else {
+        uint8_t out_buf[4048];
+        int out_len = sizeof(out_buf);
+        srtp_err_status_t status = srtp_unprotect2(
+            ctx, srtp_hdr, *pkt_octet_len, out_buf, &out_len, 0);
+        if (status == srtp_err_status_ok) {
+            memcpy(srtp_hdr, out_buf, out_len);
+            *pkt_octet_len = out_len;
+        } else {
+            printf("XXXXXXXXXXXXXXXXXXXXXXX\n");
+        }
+        return status;
+    }
+}
+
+srtp_err_status_t call_srtp_protect_rtcp(srtp_ctx_t *ctx,
+                                         void *rtcp_hdr,
+                                         int *pkt_octet_len)
+{
+    if (0) {
+        return srtp_protect_rtcp(ctx, rtcp_hdr, pkt_octet_len);
+    } else {
+        uint8_t out_buf[4048];
+        int out_len = sizeof(out_buf);
+        srtp_err_status_t status = srtp_protect_rtcp2(
+            ctx, rtcp_hdr, *pkt_octet_len, out_buf, &out_len, 0, 0);
+        if (status == srtp_err_status_ok) {
+            memcpy(rtcp_hdr, out_buf, out_len);
+            *pkt_octet_len = out_len;
+        } else {
+            printf("FFFFFFFFFFFFFFFFFFFFFFFFFF\n");
+        }
+        return status;
+    }
+}
+
+srtp_err_status_t call_srtp_unprotect_rtcp(srtp_ctx_t *ctx,
+                                           void *srtcp_hdr,
+                                           int *pkt_octet_len)
+{
+    if (0) {
+        return srtp_unprotect_rtcp(ctx, srtcp_hdr, pkt_octet_len);
+    } else {
+        uint8_t out_buf[4048];
+        int out_len = sizeof(out_buf);
+        srtp_err_status_t status = srtp_unprotect_rtcp2(
+            ctx, srtcp_hdr, *pkt_octet_len, out_buf, &out_len, 0);
+        if (status == srtp_err_status_ok) {
+            memcpy(srtcp_hdr, out_buf, out_len);
+            *pkt_octet_len = out_len;
+        } else {
+            printf("XXXXXXXXXXXXXXXXXXXXXXX\n");
+        }
+        return status;
+    }
+}
+#endif
+
 void usage(char *prog_name)
 {
     printf(
