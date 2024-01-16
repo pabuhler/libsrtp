@@ -19,16 +19,16 @@ function(target_set_warnings)
         /W4 # Baseline reasonable warnings
         /permissive- # standards conformance mode for MSVC compiler
         # C and C++ Warnings
- #       /w14242 # conversion from 'type1' to 'type1', possible loss of data
- #       /w14254 # 'operator': conversion from 't1:field_bits' to 't2:field_bits'
- #       /w14287 # unsigned/negative constant mismatch
- #       /w14296 # expression is always 'boolean_value'
- #       /w14311 # pointer truncation from 'type1' to 'type2'
+        /w14242 # conversion from 'type1' to 'type1', possible loss of data
+        /w14254 # 'operator': conversion from 't1:field_bits' to 't2:field_bits'
+        /w14287 # unsigned/negative constant mismatch
+        /w14296 # expression is always 'boolean_value'
+        /w14311 # pointer truncation from 'type1' to 'type2'
         /w44062 # enumerator in a switch of enum 'enumeration' is not handled
- #       /w44242 # conversion from 'type1' to 'type2', possible loss of data
- #       /w14826 # Conversion from 'type1' to 'type_2' is sign-extended
- #       /w14905 # wide string literal cast to 'LPSTR'
- #       /w14906 # string literal cast to 'LPWSTR'
+        /w44242 # conversion from 'type1' to 'type2', possible loss of data
+        /w14826 # Conversion from 'type1' to 'type_2' is sign-extended
+        /w14905 # wide string literal cast to 'LPSTR'
+        /w14906 # string literal cast to 'LPWSTR'
     )
 
     set(CLANG_WARNINGS
