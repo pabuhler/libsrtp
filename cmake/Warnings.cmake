@@ -39,10 +39,10 @@ function(target_set_warnings)
         -Wpedantic # warn if non-standard is used
         # C and C++ Warnings
         -Wunused # warn on anything being unused
-#        -Wformat=2 # warn on security issues around functions that format output
-#        -Wcast-align # warn for potential performance problem casts
-#        -Wconversion # warn on type conversions that may lose data
-#        -Wsign-conversion # warn on sign conversions
+        -Wformat=2 # warn on security issues around functions that format output
+        -Wcast-align # warn for potential performance problem casts
+        -Wconversion # warn on type conversions that may lose data
+        -Wsign-conversion # warn on sign conversions
         -Wnull-dereference # warn if a null dereference is detected
         -Wdouble-promotion # warn if float is implicit promoted to double
         -Wcast-qual
