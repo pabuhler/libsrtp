@@ -221,9 +221,6 @@ srtp_err_status_t srtp_cipher_decrypt(srtp_cipher_t *c,
                                       size_t src_len,
                                       uint8_t *dst,
                                       size_t *dst_len);
-srtp_err_status_t srtp_cipher_get_tag(srtp_cipher_t *c,
-                                      uint8_t *buffer,
-                                      size_t *tag_len);
 srtp_err_status_t srtp_cipher_set_aad(srtp_cipher_t *c,
                                       const uint8_t *aad,
                                       size_t aad_len);
