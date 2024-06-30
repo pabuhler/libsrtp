@@ -293,54 +293,40 @@ static srtp_err_status_t srtp_aes_gcm_openssl_set_aad(void *cv,
  *	enc_len	length of encrypt buffer
  */
 static srtp_err_status_t srtp_aes_gcm_openssl_encrypt(void *cv,
-                                                      uint8_t *buf,
-                                                      size_t *enc_len)
+                                                      const uint8_t *src,
+                                                      size_t src_len,
+                                                      uint8_t *dst,
+                                                      size_t *dst_len)
 {
     srtp_aes_gcm_ctx_t *c = (srtp_aes_gcm_ctx_t *)cv;
+
     if (c->dir != srtp_direction_encrypt && c->dir != srtp_direction_decrypt) {
-        return (srtp_err_status_bad_param);
+        return srtp_err_status_bad_param;
+    }
+
+    if (*dst_len < src_len + c->tag_len) {
+        return srtp_err_status_buffer_small;
     }
 
     /*
      * Encrypt the data
      */
-    EVP_Cipher(c->ctx, buf, buf, *enc_len);
+    EVP_Cipher(c->ctx, dst, src, src_len);
 
-    return (srtp_err_status_ok);
-}
-
-/*
- * This function calculates and returns the GCM tag for a given context.
- * This should be called after encrypting the data.  The *len value
- * is increased by the tag size.  The caller must ensure that *buf has
- * enough room to accept the appended tag.
- *
- * Parameters:
- *	c	Crypto context
- *	buf	data to encrypt
- *	len	length of encrypt buffer
- */
-static srtp_err_status_t srtp_aes_gcm_openssl_get_tag(void *cv,
-                                                      uint8_t *buf,
-                                                      size_t *len)
-{
-    srtp_aes_gcm_ctx_t *c = (srtp_aes_gcm_ctx_t *)cv;
     /*
      * Calculate the tag
      */
     EVP_Cipher(c->ctx, NULL, NULL, 0);
 
     /*
-     * Retreive the tag
+     * Retrieve the tag
      */
-    if (!EVP_CIPHER_CTX_ctrl(c->ctx, EVP_CTRL_GCM_GET_TAG, c->tag_len, buf)) {
-        return (srtp_err_status_algo_fail);
+    if (!EVP_CIPHER_CTX_ctrl(c->ctx, EVP_CTRL_GCM_GET_TAG, c->tag_len,
+                             dst + src_len)) {
+        return srtp_err_status_algo_fail;
     }
 
-    /*
-     * Increase encryption length by desired tag size
-     */
-    *len = c->tag_len;
+    *dst_len = src_len + c->tag_len;
 
     return (srtp_err_status_ok);
 }
@@ -354,35 +340,45 @@ static srtp_err_status_t srtp_aes_gcm_openssl_get_tag(void *cv,
  *	enc_len	length of encrypt buffer
  */
 static srtp_err_status_t srtp_aes_gcm_openssl_decrypt(void *cv,
-                                                      uint8_t *buf,
-                                                      size_t *enc_len)
+                                                      const uint8_t *src,
+                                                      size_t src_len,
+                                                      uint8_t *dst,
+                                                      size_t *dst_len)
 {
     srtp_aes_gcm_ctx_t *c = (srtp_aes_gcm_ctx_t *)cv;
+
     if (c->dir != srtp_direction_encrypt && c->dir != srtp_direction_decrypt) {
-        return (srtp_err_status_bad_param);
+        return srtp_err_status_bad_param;
+    }
+
+    if (*dst_len < src_len - c->tag_len) {
+        return srtp_err_status_buffer_small;
     }
 
     /*
      * Set the tag before decrypting
+     *
+     * explicitly cast away const of src
      */
-    if (!EVP_CIPHER_CTX_ctrl(c->ctx, EVP_CTRL_GCM_SET_TAG, c->tag_len,
-                             buf + (*enc_len - c->tag_len))) {
-        return (srtp_err_status_auth_fail);
+    if (!EVP_CIPHER_CTX_ctrl(
+            c->ctx, EVP_CTRL_GCM_SET_TAG, c->tag_len,
+            (void *)(uintptr_t)(src + (src_len - c->tag_len)))) {
+        return srtp_err_status_auth_fail;
     }
-    EVP_Cipher(c->ctx, buf, buf, *enc_len - c->tag_len);
+    EVP_Cipher(c->ctx, dst, src, src_len - c->tag_len);
 
     /*
      * Check the tag
      */
     if (EVP_Cipher(c->ctx, NULL, NULL, 0)) {
-        return (srtp_err_status_auth_fail);
+        return srtp_err_status_auth_fail;
     }
 
     /*
      * Reduce the buffer size by the tag length since the tag
      * is not part of the original payload
      */
-    *enc_len -= c->tag_len;
+    *dst_len = src_len -= c->tag_len;
 
     return (srtp_err_status_ok);
 }
@@ -398,6 +394,7 @@ static const char srtp_aes_gcm_256_openssl_description[] =
 /*
  * This is the vector function table for this crypto engine.
  */
+/* clang-format off */
 const srtp_cipher_type_t srtp_aes_gcm_128 = {
     srtp_aes_gcm_openssl_alloc,
     srtp_aes_gcm_openssl_dealloc,
@@ -406,15 +403,16 @@ const srtp_cipher_type_t srtp_aes_gcm_128 = {
     srtp_aes_gcm_openssl_encrypt,
     srtp_aes_gcm_openssl_decrypt,
     srtp_aes_gcm_openssl_set_iv,
-    srtp_aes_gcm_openssl_get_tag,
     srtp_aes_gcm_128_openssl_description,
     &srtp_aes_gcm_128_test_case_0,
     SRTP_AES_GCM_128
 };
+/* clang-format on */
 
 /*
  * This is the vector function table for this crypto engine.
  */
+/* clang-format off */
 const srtp_cipher_type_t srtp_aes_gcm_256 = {
     srtp_aes_gcm_openssl_alloc,
     srtp_aes_gcm_openssl_dealloc,
@@ -423,8 +421,8 @@ const srtp_cipher_type_t srtp_aes_gcm_256 = {
     srtp_aes_gcm_openssl_encrypt,
     srtp_aes_gcm_openssl_decrypt,
     srtp_aes_gcm_openssl_set_iv,
-    srtp_aes_gcm_openssl_get_tag,
     srtp_aes_gcm_256_openssl_description,
     &srtp_aes_gcm_256_test_case_0,
     SRTP_AES_GCM_256
 };
+/* clang-format on */

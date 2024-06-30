@@ -97,16 +97,18 @@ typedef srtp_err_status_t (*srtp_cipher_set_aad_func_t)(void *state,
                                                         size_t aad_len);
 
 /* a srtp_cipher_encrypt_func_t encrypts data in-place */
-typedef srtp_err_status_t (*srtp_cipher_encrypt_func_t)(
-    void *state,
-    uint8_t *buffer,
-    size_t *octets_to_encrypt);
+typedef srtp_err_status_t (*srtp_cipher_encrypt_func_t)(void *state,
+                                                        const uint8_t *src,
+                                                        size_t src_len,
+                                                        uint8_t *dst,
+                                                        size_t *dst_len);
 
 /* a srtp_cipher_decrypt_func_t decrypts data in-place */
-typedef srtp_err_status_t (*srtp_cipher_decrypt_func_t)(
-    void *state,
-    uint8_t *buffer,
-    size_t *octets_to_decrypt);
+typedef srtp_err_status_t (*srtp_cipher_decrypt_func_t)(void *state,
+                                                        const uint8_t *src,
+                                                        size_t src_len,
+                                                        uint8_t *dst,
+                                                        size_t *dst_len);
 
 /*
  * a srtp_cipher_set_iv_func_t function sets the current initialization vector
@@ -115,14 +117,6 @@ typedef srtp_err_status_t (*srtp_cipher_set_iv_func_t)(
     void *state,
     uint8_t *iv,
     srtp_cipher_direction_t direction);
-
-/*
- * a cipher_get_tag_func_t function is used to get the authentication
- * tag that was calculated by an AEAD cipher.
- */
-typedef srtp_err_status_t (*srtp_cipher_get_tag_func_t)(void *state,
-                                                        uint8_t *tag,
-                                                        size_t *len);
 
 /*
  * srtp_cipher_test_case_t is a (list of) key, salt, plaintext, ciphertext,
@@ -155,7 +149,6 @@ typedef struct srtp_cipher_type_t {
     srtp_cipher_encrypt_func_t encrypt;
     srtp_cipher_decrypt_func_t decrypt;
     srtp_cipher_set_iv_func_t set_iv;
-    srtp_cipher_get_tag_func_t get_tag;
     const char *description;
     const srtp_cipher_test_case_t *test_data;
     srtp_cipher_type_id_t id;
@@ -219,14 +212,15 @@ srtp_err_status_t srtp_cipher_output(srtp_cipher_t *c,
                                      uint8_t *buffer,
                                      size_t *num_octets_to_output);
 srtp_err_status_t srtp_cipher_encrypt(srtp_cipher_t *c,
-                                      uint8_t *buffer,
-                                      size_t *num_octets_to_output);
+                                      const uint8_t *src,
+                                      size_t src_len,
+                                      uint8_t *dst,
+                                      size_t *dst_len);
 srtp_err_status_t srtp_cipher_decrypt(srtp_cipher_t *c,
-                                      uint8_t *buffer,
-                                      size_t *num_octets_to_output);
-srtp_err_status_t srtp_cipher_get_tag(srtp_cipher_t *c,
-                                      uint8_t *buffer,
-                                      size_t *tag_len);
+                                      const uint8_t *src,
+                                      size_t src_len,
+                                      uint8_t *dst,
+                                      size_t *dst_len);
 srtp_err_status_t srtp_cipher_set_aad(srtp_cipher_t *c,
                                       const uint8_t *aad,
                                       size_t aad_len);
