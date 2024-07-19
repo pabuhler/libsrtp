@@ -18,6 +18,12 @@
 /* Define this to use OpenSSL crypto. */
 #cmakedefine OPENSSL 1
 
+/* Define this to use wolfSSL crypto. */
+#cmakedefine WOLFSSL 1
+
+/* Define this to use wolfSSL SRTP-KDF. */
+#cmakedefine WOLFSSL_KDF 1
+
 /* Define this to use MBEDTLS. */
 #cmakedefine MBEDTLS 1
 
@@ -82,6 +88,9 @@
 /* Define to 1 if you have the `inet_aton' function. */
 #cmakedefine HAVE_INET_ATON 1
 
+/* Define to 1 if you have the `inet_pton' function. */
+#cmakedefine HAVE_INET_PTON 1
+
 /* Define to 1 if you have the `sigaction' function. */
 #cmakedefine HAVE_SIGACTION 1
 
@@ -118,4 +127,15 @@
   #else
     #define inline
   #endif
+#endif
+
+/* Define gcc/clang-style SSE macros on compilers that don't define them (primarilly, MSVC). */
+#if !defined(__SSE2__) && (defined(_M_X64) || (defined(_M_IX86_FP) && _M_IX86_FP >= 2))
+#define __SSE2__
+#endif
+#if !defined(__SSSE3__) && defined(__AVX__)
+#define __SSSE3__
+#endif
+#if !defined(__SSE4_1__) && defined(__AVX__)
+#define __SSE4_1__
 #endif

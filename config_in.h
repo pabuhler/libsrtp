@@ -30,6 +30,9 @@
 /* Define to 1 if you have the `inet_aton' function. */
 #undef HAVE_INET_ATON
 
+/* Define to 1 if you have the `inet_pton' function. */
+#undef HAVE_INET_PTON
+
 /* Define to 1 if the system has the type `int16_t'. */
 #undef HAVE_INT16_T
 
@@ -138,9 +141,6 @@
 /* Define this to use OpenSSL crypto. */
 #undef OPENSSL
 
-/* Define this if OPENSSL_cleanse is broken. */
-#undef OPENSSL_CLEANSE_BROKEN
-
 /* Define this to use OpenSSL KDF for SRTP. */
 #undef OPENSSL_KDF
 
@@ -170,6 +170,12 @@
 
 /* Define to 1 if you have the ANSI C header files. */
 #undef STDC_HEADERS
+
+/* Define this to use wolfSSL crypto. */
+#undef WOLFSSL
+
+/* Define this to use wolfSSL KDF for SRTP. */
+#undef WOLFSSL_KDF
 
 /* Define WORDS_BIGENDIAN to 1 if your processor stores words with the most
    significant byte first (like Motorola and SPARC, unlike Intel). */

@@ -47,7 +47,22 @@
 
 #include <stdio.h>
 #include <stdarg.h>
+
+#ifdef HAVE_CONFIG_H
+#include <config.h>
+#endif
 #include "srtp.h"
+
+#if defined(__clang__) || (defined(__GNUC__) && defined(__has_attribute))
+#if __has_attribute(format)
+#define LIBSRTP_FORMAT_PRINTF(fmt, args)                                       \
+    __attribute__((format(__printf__, fmt, args)))
+#else
+#define LIBSRTP_FORMAT_PRINTF(fmt, args)
+#endif
+#else
+#define LIBSRTP_FORMAT_PRINTF(fmt, args)
+#endif
 
 #ifdef __cplusplus
 extern "C" {
@@ -96,39 +111,56 @@ srtp_err_status_t srtp_install_err_report_handler(
  *
  */
 
-void srtp_err_report(srtp_err_reporting_level_t level, const char *format, ...);
+void srtp_err_report(srtp_err_reporting_level_t level, const char *format, ...)
+    LIBSRTP_FORMAT_PRINTF(2, 3);
 
 /*
  * debug_module_t defines a debug module
  */
 
 typedef struct {
-    int on;           /* 1 if debugging is on, 0 if it is off */
+    bool on;          /* true if debugging is on, false if it is off */
     const char *name; /* printable name for debug module      */
 } srtp_debug_module_t;
 
 #ifdef ENABLE_DEBUG_LOGGING
 
+#ifndef debug_print0
 #define debug_print0(mod, format)                                              \
     srtp_err_report(srtp_err_level_debug, ("%s: " format "\n"), mod.name)
+#endif
+
+#ifndef debug_print
 #define debug_print(mod, format, arg)                                          \
     srtp_err_report(srtp_err_level_debug, ("%s: " format "\n"), mod.name, arg)
+#endif
+
+#ifndef debug_print2
 #define debug_print2(mod, format, arg1, arg2)                                  \
     srtp_err_report(srtp_err_level_debug, ("%s: " format "\n"), mod.name,      \
                     arg1, arg2)
+#endif
 
 #else
 
+#ifndef debug_print0
 #define debug_print0(mod, format)                                              \
     if (mod.on)                                                                \
     srtp_err_report(srtp_err_level_debug, ("%s: " format "\n"), mod.name)
+#endif
+
+#ifndef debug_print
 #define debug_print(mod, format, arg)                                          \
     if (mod.on)                                                                \
     srtp_err_report(srtp_err_level_debug, ("%s: " format "\n"), mod.name, arg)
+#endif
+
+#ifndef debug_print2
 #define debug_print2(mod, format, arg1, arg2)                                  \
     if (mod.on)                                                                \
     srtp_err_report(srtp_err_level_debug, ("%s: " format "\n"), mod.name,      \
                     arg1, arg2)
+#endif
 
 #endif
 

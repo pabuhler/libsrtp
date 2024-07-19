@@ -1,5 +1,5 @@
 dnl Process this file with autoconf to produce a configure script.
-AC_INIT([libsrtp2], [2.5.0-pre], [https://github.com/cisco/libsrtp/issues])
+AC_INIT([libsrtp3],[3.0.0-pre],[https://github.com/cisco/libsrtp/issues])
 
 dnl Must come before AC_PROG_CC
 EMPTY_CFLAGS="no"
@@ -166,7 +166,7 @@ AC_C_INLINE
 AC_TYPE_SIZE_T
 
 dnl Checks for library functions.
-AC_CHECK_FUNCS([socket inet_aton usleep sigaction])
+AC_CHECK_FUNCS([socket inet_aton inet_pton usleep sigaction])
 
 dnl Find socket function if not found yet.
 if test "x$ac_cv_func_socket" = "xno"; then
@@ -210,6 +210,12 @@ AC_ARG_ENABLE([openssl],
   [], [enable_openssl=no])
 AC_MSG_RESULT([$enable_openssl])
 
+AC_MSG_CHECKING([whether to leverage wolfSSL crypto])
+AC_ARG_ENABLE([wolfssl],
+  [AS_HELP_STRING([--enable-wolfssl], [compile in wolfSSL crypto engine])],
+  [], [enable_wolfssl=no])
+AC_MSG_RESULT([$enable_wolfssl])
+
 AC_MSG_CHECKING([whether to leverage NSS crypto])
 AC_ARG_ENABLE([nss],
   [AS_HELP_STRING([--enable-nss], [compile in NSS crypto engine])],
@@ -242,58 +248,28 @@ if test "$enable_openssl" = "yes"; then
       [AC_MSG_RESULT([no])])
 
    if test "x$PKG_CONFIG" != "x"; then
-     PKG_CHECK_MODULES([crypto], [libcrypto >= 1.0.2i],
+     PKG_CHECK_MODULES([crypto], [libcrypto >= 1.1.0],
        [CFLAGS="$CFLAGS $crypto_CFLAGS"
-        LIBS="$crypto_LIBS $LIBS"
-        openssl_cleanse_broken=no],
-       [PKG_CHECK_MODULES([crypto], [libcrypto >= 1.0.1],
-         [CFLAGS="$CFLAGS $crypto_CFLAGS"
-          LIBS="$crypto_LIBS $LIBS"
-          openssl_cleanse_broken=maybe])])
+        LIBS="$crypto_LIBS $LIBS"])
    else
      AC_CHECK_LIB([dl], [dlopen], [], [AC_MSG_WARN([can't find libdl])])
      AC_CHECK_LIB([z], [inflate], [], [AC_MSG_WARN([can't find libz])])
    fi
 
    AC_SEARCH_LIBS([EVP_EncryptInit], [crypto],
-     [], [AC_MSG_FAILURE([can't find openssl >= 1.0.1 crypto lib])])
+     [], [AC_MSG_FAILURE([can't find openssl >= 1.1.0 crypto lib])])
    AC_SEARCH_LIBS([EVP_aes_128_ctr], [crypto],
-     [], [AC_MSG_FAILURE([can't find openssl >= 1.0.1 crypto lib])])
+     [], [AC_MSG_FAILURE([can't find openssl >= 1.1.0 crypto lib])])
    AC_SEARCH_LIBS([EVP_aes_128_gcm], [crypto],
-     [], [AC_MSG_FAILURE([can't find openssl >= 1.0.1 crypto lib])])
+     [], [AC_MSG_FAILURE([can't find openssl >= 1.1.0 crypto lib])])
+   AC_SEARCH_LIBS([EVP_CIPHER_CTX_reset], [crypto],
+     [], [AC_MSG_FAILURE([can't find openssl >= 1.1.0 crypto lib])])
 
    AC_DEFINE([GCM], [1], [Define this to use AES-GCM.])
    AC_DEFINE([OPENSSL], [1], [Define this to use OpenSSL crypto.])
    AES_ICM_OBJS="crypto/cipher/aes_icm_ossl.o crypto/cipher/aes_gcm_ossl.o"
    HMAC_OBJS=crypto/hash/hmac_ossl.o
    AC_SUBST([USE_EXTERNAL_CRYPTO], [1])
-
-   AS_IF([test "x$openssl_cleanse_broken" != "xno"], [
-     AC_MSG_CHECKING([if OPENSSL_cleanse is broken])
-     AC_RUN_IFELSE([AC_LANG_PROGRAM([
-       #include <stdio.h>
-       #include <openssl/crypto.h>
-     ], [
-       #define BUFFER_SIZE (16)
-       char buffer[[BUFFER_SIZE]];
-       int i;
-       for (i = 0; i < BUFFER_SIZE; i++) {
-         buffer[[i]] = i & 0xff;
-       }
-       OPENSSL_cleanse(buffer, BUFFER_SIZE);
-       for (i = 0; i < BUFFER_SIZE; i++) {
-         if (buffer[[i]]) {
-           printf("Buffer contents not zero at position %d (is %d)\n", i,
-               buffer[[i]]);
-           return 1;
-         }
-       }
-     ])], [openssl_cleanse_broken=no], [openssl_cleanse_broken=yes], [openssl_cleanse_broken=maybe])
-     AC_MSG_RESULT([$openssl_cleanse_broken])
-     AS_IF([test "x$openssl_cleanse_broken" != "xno"], [
-       AC_DEFINE([OPENSSL_CLEANSE_BROKEN], [1], [Define this if OPENSSL_cleanse is broken.])
-     ])
-   ])
 
    AC_MSG_CHECKING([whether to leverage OpenSSL KDF algorithm])
    AC_ARG_ENABLE([openssl-kdf],
@@ -305,6 +281,36 @@ if test "$enable_openssl" = "yes"; then
        [], [AC_MSG_FAILURE([can't find openssl KDF lib])])
      AC_DEFINE([OPENSSL_KDF], [1], [Define this to use OpenSSL KDF for SRTP.])
    fi
+elif test "$enable_wolfssl" = "yes"; then
+   AC_MSG_CHECKING([for user specified wolfSSL directory])
+   AC_ARG_WITH([wolfssl-dir],
+      [AS_HELP_STRING([--with-wolfssl-dir], [Location of wolfSSL installation])],
+       [if test -d $with_wolfssl_dir/lib; then
+         CFLAGS="$CFLAGS -I$with_wolfssl_dir/include -I$with_wolfssl_dir/include/wolfssl"
+         if test "x$LDFLAGS" = "x"; then
+           LDFLAGS="-L$with_wolfssl_dir/lib"
+         else
+           LDFLAGS="$LDFLAGS -L$with_wolfssl_dir/lib"
+         fi
+         AC_MSG_RESULT([$with_wolfssl_dir])
+       else
+         AC_MSG_RESULT([invalid])
+         AC_MSG_FAILURE([Invalid wolfSSL location: $with_wolfssl_dir])
+       fi],
+      [AC_MSG_RESULT([no])])
+
+   AC_CHECK_LIB([dl], [dlopen], [], [AC_MSG_WARN([can't find libdl])])
+
+   AC_DEFINE([GCM], [1], [Define this to use AES-GCM.])
+   AC_DEFINE([WOLFSSL], [1], [Define this to use wolfSSL crypto.])
+   AES_ICM_OBJS="crypto/cipher/aes_icm_wssl.o crypto/cipher/aes_gcm_wssl.o"
+   HMAC_OBJS=crypto/hash/hmac_wssl.o
+   AC_SUBST([USE_EXTERNAL_CRYPTO], [1])
+
+   AC_MSG_CHECKING([whether to leverage wolfSSL KDF algorithm])
+   AC_SEARCH_LIBS([wc_SRTCP_KDF], [wolfssl],
+     [], [AC_MSG_FAILURE([can't find wolfssl KDF lib])])
+   AC_DEFINE([WOLFSSL_KDF], [1], [Define this to use wolfSSL KDF for SRTP.])
 elif test "$enable_nss" = "yes"; then
    AC_MSG_CHECKING([for user specified NSS directory])
    AC_ARG_WITH([nss-dir],
@@ -381,7 +387,7 @@ AS_IF([test "x$enable_pcap" != "xno"], [
      AC_SUBST([HAVE_PCAP], [1])])
 ])
 AC_SUBST([PCAP_LIB])
-   
+
 AC_MSG_CHECKING([whether to redirect logging to stdout])
 AC_ARG_ENABLE([log-stdout],
   [AS_HELP_STRING([--enable-log-stdout], [redirecting logging to stdout])],
@@ -419,7 +425,7 @@ AS_IF([test "x$EXTRA_CFLAGS" != "x"],
 
 AC_CONFIG_HEADER([crypto/include/config.h:config_in.h])
 
-AC_CONFIG_FILES([Makefile crypto/Makefile doc/Makefile fuzzer/Makefile libsrtp2.pc])
+AC_CONFIG_FILES([Makefile crypto/Makefile doc/Makefile fuzzer/Makefile libsrtp3.pc])
 AC_OUTPUT
 
 # This is needed when building outside the source dir.

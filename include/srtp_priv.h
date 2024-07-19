@@ -51,7 +51,6 @@
 #include "srtp.h"
 #include "rdbx.h"
 #include "rdb.h"
-#include "integers.h"
 #include "cipher.h"
 #include "auth.h"
 #include "aes.h"
@@ -66,6 +65,7 @@ extern "C" {
 
 typedef struct srtp_stream_ctx_t_ srtp_stream_ctx_t;
 typedef srtp_stream_ctx_t *srtp_stream_t;
+typedef struct srtp_stream_list_ctx_t_ *srtp_stream_list_t;
 
 /*
  * the following declarations are libSRTP internal functions
@@ -76,31 +76,6 @@ typedef srtp_stream_ctx_t *srtp_stream_t;
  * to ssrc, or NULL if no stream exists for that ssrc
  */
 srtp_stream_t srtp_get_stream(srtp_t srtp, uint32_t ssrc);
-
-/*
- * srtp_stream_init_keys(s, k) (re)initializes the srtp_stream_t s by
- * deriving all of the needed keys using the KDF and the key k.
- */
-srtp_err_status_t srtp_stream_init_keys(srtp_stream_ctx_t *srtp,
-                                        srtp_master_key_t *master_key,
-                                        const unsigned int current_mki_index);
-
-/*
- * srtp_stream_init_all_master_keys(s, k, m) (re)initializes the srtp_stream_t s
- * by deriving all of the needed keys for all the master keys using the KDF and
- * the keys from k.
- */
-srtp_err_status_t srtp_steam_init_all_master_keys(
-    srtp_stream_ctx_t *srtp,
-    unsigned char *key,
-    srtp_master_key_t **keys,
-    const unsigned int max_master_keys);
-
-/*
- * srtp_stream_init(s, p) initializes the srtp_stream_t s to
- * use the policy at the location p
- */
-srtp_err_status_t srtp_stream_init(srtp_stream_t srtp, const srtp_policy_t *p);
 
 /*
  * libsrtp internal datatypes
@@ -125,7 +100,6 @@ typedef struct srtp_session_keys_t {
     uint8_t salt[SRTP_AEAD_SALT_LEN];
     uint8_t c_salt[SRTP_AEAD_SALT_LEN];
     uint8_t *mki_id;
-    unsigned int mki_size;
     srtp_key_limit_ctx_t *limit;
 } srtp_session_keys_t;
 
@@ -139,15 +113,17 @@ typedef struct srtp_session_keys_t {
 typedef struct srtp_stream_ctx_t_ {
     uint32_t ssrc;
     srtp_session_keys_t *session_keys;
-    unsigned int num_master_keys;
+    size_t num_master_keys;
+    bool use_mki;
+    size_t mki_size;
     srtp_rdbx_t rtp_rdbx;
     srtp_sec_serv_t rtp_services;
     srtp_rdb_t rtcp_rdb;
     srtp_sec_serv_t rtcp_services;
     direction_t direction;
-    int allow_repeat_tx;
-    int *enc_xtn_hdr;
-    int enc_xtn_hdr_count;
+    bool allow_repeat_tx;
+    uint8_t *enc_xtn_hdr;
+    size_t enc_xtn_hdr_count;
     uint32_t pending_roc;
     unsigned int use_cryptex;
     struct srtp_stream_ctx_t_ *next; /* linked list of streams */
@@ -157,7 +133,7 @@ typedef struct srtp_stream_ctx_t_ {
  * an srtp_ctx_t holds a stream list and a service description
  */
 typedef struct srtp_ctx_t_ {
-    struct srtp_stream_ctx_t_ *stream_list;     /* linked list of streams     */
+    srtp_stream_list_t stream_list;             /* linked list of streams     */
     struct srtp_stream_ctx_t_ *stream_template; /* act as template for other  */
                                                 /* streams                    */
     void *user_data;                            /* user custom data           */
