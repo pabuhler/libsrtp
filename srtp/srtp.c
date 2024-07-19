@@ -2707,7 +2707,7 @@ srtp_err_status_t srtp_unprotect(srtp_t ctx,
     uint16_t seq_to_set = 0;
     size_t xtn_hdr_length = 0;
     int xtn_profile_specific = 0;
-    unsigned int use_cryptex = 0;
+    bool use_cryptex = 0;
     uint32_t xtn_hdr_profile_and_value = 0;
 
     debug_print0(mod_srtp, "function srtp_unprotect");
