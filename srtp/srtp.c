@@ -1914,7 +1914,7 @@ static srtp_err_status_t srtp_protect_aead(srtp_ctx_t *ctx,
         /* Change profiles by cryptex values */
         if (xtn_profile_specific == 0xbede) {
             xtn_hdr_profile_and_value = htonl(0xc0de << 16 | xtn_hdr_length);
-        } else if (xtn_profile_specific == 0x1000) {
+        } else if ((xtn_profile_specific & 0xfff0) == 0x1000) {
             xtn_hdr_profile_and_value = htonl(0xc2de << 16 | xtn_hdr_length);
         } else {
             return srtp_err_status_parse_err;
