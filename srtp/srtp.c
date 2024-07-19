@@ -2088,7 +2088,7 @@ static srtp_err_status_t srtp_unprotect_aead(srtp_ctx_t *ctx,
     size_t tag_len;
     size_t int aad_len;
     srtp_hdr_xtnd_t *xtn_hdr = NULL;
-    int xtn_hdr_length = 0;
+    size_t xtn_hdr_length = 0;
     int xtn_profile_specific = 0;
     bool use_cryptex = false;
     uint32_t xtn_hdr_profile_and_value = 0;
