@@ -2335,7 +2335,7 @@ srtp_err_status_t srtp_protect(srtp_t ctx,
     srtp_session_keys_t *session_keys = NULL;
     uint8_t *mki_location = NULL;
     int advance_packet_index = 0;
-    int xtn_hdr_length = 0;
+    size_t xtn_hdr_length = 0;
     int xtn_profile_specific = 0;
     uint32_t xtn_hdr_profile_and_value = 0;
 
