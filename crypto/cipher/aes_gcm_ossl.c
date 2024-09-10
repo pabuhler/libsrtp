@@ -296,11 +296,16 @@ static srtp_err_status_t srtp_aes_gcm_openssl_encrypt(void *cv,
                                                       const uint8_t *src,
                                                       size_t src_len,
                                                       uint8_t *dst,
-                                                      size_t *dst_len)
+                                                      size_t *dst_len,
+                                                      bool final)
 {
     srtp_aes_gcm_ctx_t *c = (srtp_aes_gcm_ctx_t *)cv;
 
     if (c->dir != srtp_direction_encrypt) {
+        return srtp_err_status_bad_param;
+    }
+
+    if (!final) {
         return srtp_err_status_bad_param;
     }
 
@@ -343,7 +348,8 @@ static srtp_err_status_t srtp_aes_gcm_openssl_decrypt(void *cv,
                                                       const uint8_t *src,
                                                       size_t src_len,
                                                       uint8_t *dst,
-                                                      size_t *dst_len)
+                                                      size_t *dst_len,
+                                                      bool final)
 {
     srtp_aes_gcm_ctx_t *c = (srtp_aes_gcm_ctx_t *)cv;
 
@@ -352,6 +358,10 @@ static srtp_err_status_t srtp_aes_gcm_openssl_decrypt(void *cv,
     }
 
     if (src_len < c->tag_len) {
+        return srtp_err_status_bad_param;
+    }
+
+    if (!final) {
         return srtp_err_status_bad_param;
     }
 

@@ -67,6 +67,10 @@ srtp_err_status_t cipher_driver_test_api(srtp_cipher_type_t *ct,
                                          size_t key_len,
                                          size_t tag_len);
 
+srtp_err_status_t cipher_driver_test_buffered_api(srtp_cipher_type_t *ct,
+                                                  size_t key_len,
+                                                  size_t tag_len);
+
 /*
  * cipher_driver_test_buffering(ct) tests the cipher's output
  * buffering for correctness by checking the consistency of successive
@@ -213,11 +217,31 @@ int main(int argc, char *argv[])
         cipher_driver_self_test(&srtp_aes_gcm_128);
         cipher_driver_self_test(&srtp_aes_gcm_256);
 #endif
+        cipher_driver_test_api(&srtp_null_cipher,
+                               SRTP_AES_ICM_128_KEY_LEN_WSALT, 0);
         cipher_driver_test_api(&srtp_aes_icm_128,
                                SRTP_AES_ICM_128_KEY_LEN_WSALT, 0);
+        cipher_driver_test_api(&srtp_aes_icm_256,
+                               SRTP_AES_ICM_128_KEY_LEN_WSALT, 0);
+        cipher_driver_test_buffered_api(&srtp_null_cipher,
+                                        SRTP_AES_ICM_128_KEY_LEN_WSALT, 0);
+        cipher_driver_test_buffered_api(&srtp_aes_icm_128,
+                                        SRTP_AES_ICM_128_KEY_LEN_WSALT, 0);
+        cipher_driver_test_buffered_api(&srtp_aes_icm_256,
+                                        SRTP_AES_ICM_256_KEY_LEN_WSALT, 0);
 #ifdef GCM
+        cipher_driver_test_api(&srtp_aes_icm_192,
+                               SRTP_AES_ICM_192_KEY_LEN_WSALT, 0);
         cipher_driver_test_api(&srtp_aes_gcm_128,
                                SRTP_AES_GCM_128_KEY_LEN_WSALT, 16);
+        cipher_driver_test_api(&srtp_aes_gcm_256,
+                               SRTP_AES_GCM_256_KEY_LEN_WSALT, 16);
+        cipher_driver_test_buffered_api(&srtp_aes_icm_192,
+                                        SRTP_AES_ICM_192_KEY_LEN_WSALT, 0);
+        cipher_driver_test_buffered_api(&srtp_aes_gcm_128,
+                                        SRTP_AES_GCM_128_KEY_LEN_WSALT, 16);
+        cipher_driver_test_buffered_api(&srtp_aes_gcm_256,
+                                        SRTP_AES_GCM_256_KEY_LEN_WSALT, 16);
 #endif
     }
 
@@ -425,7 +449,8 @@ srtp_err_status_t cipher_driver_test_api(srtp_cipher_type_t *ct,
     // test dst len zero
     src_len = sizeof(plaintext);
     dst_len = 0;
-    status = srtp_cipher_encrypt(c, plaintext, src_len, encrypted, &dst_len);
+    status =
+        srtp_cipher_encrypt(c, plaintext, src_len, encrypted, &dst_len, true);
     CHECK_RETURN(status, srtp_err_status_buffer_small);
 
     reint_cipher(c, test_key, iv, srtp_direction_encrypt);
@@ -433,7 +458,8 @@ srtp_err_status_t cipher_driver_test_api(srtp_cipher_type_t *ct,
     // test dst len smaller than expected
     src_len = sizeof(plaintext);
     dst_len = src_len + tag_len - 1;
-    status = srtp_cipher_encrypt(c, plaintext, src_len, encrypted, &dst_len);
+    status =
+        srtp_cipher_encrypt(c, plaintext, src_len, encrypted, &dst_len, true);
     CHECK_RETURN(status, srtp_err_status_buffer_small);
 
     reint_cipher(c, test_key, iv, srtp_direction_encrypt);
@@ -441,7 +467,8 @@ srtp_err_status_t cipher_driver_test_api(srtp_cipher_type_t *ct,
     // test dst len exact size
     src_len = sizeof(plaintext);
     dst_len = src_len + tag_len;
-    status = srtp_cipher_encrypt(c, plaintext, src_len, encrypted, &dst_len);
+    status =
+        srtp_cipher_encrypt(c, plaintext, src_len, encrypted, &dst_len, true);
     CHECK_OK(status);
     CHECK(dst_len == src_len + tag_len);
 
@@ -450,7 +477,8 @@ srtp_err_status_t cipher_driver_test_api(srtp_cipher_type_t *ct,
     // dst len larger than src len
     src_len = sizeof(plaintext);
     dst_len = sizeof(encrypted);
-    status = srtp_cipher_encrypt(c, plaintext, src_len, encrypted, &dst_len);
+    status =
+        srtp_cipher_encrypt(c, plaintext, src_len, encrypted, &dst_len, true);
     CHECK_OK(status);
     CHECK(dst_len == src_len + tag_len);
 
@@ -469,8 +497,8 @@ srtp_err_status_t cipher_driver_test_api(srtp_cipher_type_t *ct,
         // test src less than tag len
         src_len = tag_len - 1;
         dst_len = sizeof(decrypted);
-        status =
-            srtp_cipher_decrypt(c, encrypted, src_len, decrypted, &dst_len);
+        status = srtp_cipher_decrypt(c, encrypted, src_len, decrypted, &dst_len,
+                                     true);
         CHECK_RETURN(status, srtp_err_status_bad_param);
 
         reint_cipher(c, test_key, iv, srtp_direction_decrypt);
@@ -479,7 +507,8 @@ srtp_err_status_t cipher_driver_test_api(srtp_cipher_type_t *ct,
     // test dst len zero
     src_len = encrypted_len;
     dst_len = 0;
-    status = srtp_cipher_decrypt(c, encrypted, src_len, decrypted, &dst_len);
+    status =
+        srtp_cipher_decrypt(c, encrypted, src_len, decrypted, &dst_len, true);
     CHECK_RETURN(status, srtp_err_status_buffer_small);
 
     reint_cipher(c, test_key, iv, srtp_direction_decrypt);
@@ -487,7 +516,8 @@ srtp_err_status_t cipher_driver_test_api(srtp_cipher_type_t *ct,
     // test dst len smaller than expected
     src_len = encrypted_len;
     dst_len = src_len - tag_len - 1;
-    status = srtp_cipher_decrypt(c, encrypted, src_len, decrypted, &dst_len);
+    status =
+        srtp_cipher_decrypt(c, encrypted, src_len, decrypted, &dst_len, true);
     CHECK_RETURN(status, srtp_err_status_buffer_small);
 
     reint_cipher(c, test_key, iv, srtp_direction_decrypt);
@@ -495,7 +525,8 @@ srtp_err_status_t cipher_driver_test_api(srtp_cipher_type_t *ct,
     // test dst len exact
     src_len = encrypted_len;
     dst_len = src_len - tag_len;
-    status = srtp_cipher_decrypt(c, encrypted, src_len, decrypted, &dst_len);
+    status =
+        srtp_cipher_decrypt(c, encrypted, src_len, decrypted, &dst_len, true);
     CHECK_OK(status);
     CHECK(dst_len == sizeof(plaintext));
     CHECK_BUFFER_EQUAL(plaintext, decrypted, sizeof(plaintext));
@@ -505,12 +536,103 @@ srtp_err_status_t cipher_driver_test_api(srtp_cipher_type_t *ct,
     // dst len larger than src len
     src_len = encrypted_len;
     dst_len = sizeof(decrypted);
-    status = srtp_cipher_decrypt(c, encrypted, src_len, decrypted, &dst_len);
+    status =
+        srtp_cipher_decrypt(c, encrypted, src_len, decrypted, &dst_len, true);
     CHECK_OK(status);
     CHECK(dst_len == sizeof(plaintext));
     CHECK_BUFFER_EQUAL(plaintext, decrypted, sizeof(plaintext));
 
     reint_cipher(c, test_key, iv, srtp_direction_decrypt);
+
+    status = srtp_cipher_dealloc(c);
+    CHECK_OK(status);
+
+    printf("passed\n");
+
+    return srtp_err_status_ok;
+}
+
+srtp_err_status_t cipher_driver_test_buffered_api(srtp_cipher_type_t *ct,
+                                                  size_t key_len,
+                                                  size_t tag_len)
+{
+    srtp_err_status_t status;
+    srtp_cipher_t *c = NULL;
+
+    /* clang-format off */
+    uint8_t test_key[48] = {
+        0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
+        0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f,
+        0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17,
+        0x18, 0x19, 0x1a, 0x1b, 0x1c, 0x1d, 0x1e, 0x1f,
+        0x20, 0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27,
+        0x28, 0x29, 0x2a, 0x2b, 0x2c, 0x2d, 0x2e, 0x2f,
+    };
+    uint8_t iv[16] = {
+        0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
+        0x08, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f};
+    uint8_t plaintext[64] = {
+        0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
+        0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
+        0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
+        0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
+        0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
+        0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
+        0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
+        0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
+    };
+    uint8_t encrypted_reference[96] = {0};
+    uint8_t encrypted[96] = {0};
+    //uint8_t decrypted[96] = {0};
+    /* clang-format on */
+
+    printf("testing cipher buffered api for %s...", ct->description);
+    fflush(stdout);
+
+    if (key_len > sizeof(test_key)) {
+        return srtp_err_status_bad_param;
+    }
+
+    status = srtp_cipher_type_alloc(ct, &c, key_len, tag_len);
+    CHECK_OK(status);
+
+    status = srtp_cipher_init(c, test_key);
+    CHECK_OK(status);
+
+    status = srtp_cipher_set_iv(c, iv, srtp_direction_encrypt);
+    CHECK_OK(status);
+
+    size_t src_len;
+    size_t dst_len;
+
+    // encrypt reference
+    src_len = sizeof(plaintext);
+    size_t enc_ref_len = sizeof(encrypted_reference);
+    status = srtp_cipher_encrypt(c, plaintext, src_len, encrypted_reference,
+                                 &enc_ref_len, true);
+    CHECK_OK(status);
+
+    reint_cipher(c, test_key, iv, srtp_direction_encrypt);
+
+    // test all data in first call
+    src_len = sizeof(plaintext);
+    dst_len = sizeof(encrypted);
+    status =
+        srtp_cipher_encrypt(c, plaintext, src_len, encrypted, &dst_len, false);
+    if (ct->id == SRTP_AES_GCM_128 || ct->id == SRTP_AES_GCM_256) {
+        CHECK_RETURN(status, srtp_err_status_bad_param);
+        printf("expected fail\n");
+        return srtp_err_status_ok;
+    }
+    CHECK_OK(status);
+    size_t dst_offset = dst_len;
+    dst_len = sizeof(encrypted) - dst_offset;
+
+    status =
+        srtp_cipher_encrypt(c, NULL, 0, encrypted + dst_offset, &dst_len, true);
+    CHECK_OK(status);
+    CHECK(enc_ref_len == dst_offset + dst_len);
+    CHECK_BUFFER_EQUAL(encrypted_reference, encrypted, enc_ref_len);
 
     status = srtp_cipher_dealloc(c);
     CHECK_OK(status);
@@ -551,7 +673,8 @@ srtp_err_status_t cipher_driver_test_buffering(srtp_cipher_t *c)
         }
 
         /* generate 'reference' value by encrypting all at once */
-        status = srtp_cipher_encrypt(c, buffer0, buflen, buffer0, &buflen);
+        status =
+            srtp_cipher_encrypt(c, buffer0, buflen, buffer0, &buflen, true);
         if (status) {
             return status;
         }
@@ -566,6 +689,8 @@ srtp_err_status_t cipher_driver_test_buffering(srtp_cipher_t *c)
         current = buffer1;
         end = buffer1 + buflen;
         while (current < end) {
+            bool final = current == end;
+
             /* choose a short length */
             len = srtp_cipher_rand_u32_for_tests() & 0x01f;
 
@@ -574,7 +699,7 @@ srtp_err_status_t cipher_driver_test_buffering(srtp_cipher_t *c)
                 len = end - current;
             }
 
-            status = srtp_cipher_encrypt(c, current, len, current, &len);
+            status = srtp_cipher_encrypt(c, current, len, current, &len, final);
             if (status) {
                 return status;
             }
@@ -583,7 +708,7 @@ srtp_err_status_t cipher_driver_test_buffering(srtp_cipher_t *c)
             current += len;
 
             /* if buffer1 is all encrypted, break out of loop */
-            if (current == end) {
+            if (final) {
                 break;
             }
         }
@@ -725,7 +850,8 @@ uint64_t cipher_array_bits_per_second(srtp_cipher_t *cipher_array[],
         srtp_cipher_set_iv(cipher_array[cipher_index], (uint8_t *)&nonce,
                            srtp_direction_encrypt);
         srtp_cipher_encrypt(cipher_array[cipher_index], enc_buf,
-                            octets_to_encrypt, enc_buf, &octets_to_encrypt);
+                            octets_to_encrypt, enc_buf, &octets_to_encrypt,
+                            true);
 
         /* choose a cipher at random from the array*/
         cipher_index = (*((size_t *)enc_buf)) % num_cipher;

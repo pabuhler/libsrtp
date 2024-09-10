@@ -301,7 +301,8 @@ static srtp_err_status_t srtp_aes_icm_openssl_encrypt(void *cv,
                                                       const uint8_t *src,
                                                       size_t src_len,
                                                       uint8_t *dst,
-                                                      size_t *dst_len)
+                                                      size_t *dst_len,
+                                                      bool final)
 {
     srtp_aes_icm_ctx_t *c = (srtp_aes_icm_ctx_t *)cv;
     int len = 0;
@@ -321,10 +322,12 @@ static srtp_err_status_t srtp_aes_icm_openssl_encrypt(void *cv,
     }
     *dst_len = len;
 
-    if (!EVP_EncryptFinal_ex(c->ctx, dst + len, &len)) {
-        return srtp_err_status_cipher_fail;
+    if (final) {
+        if (!EVP_EncryptFinal_ex(c->ctx, dst + len, &len)) {
+            return srtp_err_status_cipher_fail;
+        }
+        *dst_len += len;
     }
-    *dst_len += len;
 
     return srtp_err_status_ok;
 }

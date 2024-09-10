@@ -108,33 +108,37 @@ srtp_err_status_t srtp_cipher_output(srtp_cipher_t *c,
 
     /* exor keystream into buffer */
     return (((c)->type)->encrypt(((c)->state), buffer, *num_octets_to_output,
-                                 buffer, num_octets_to_output));
+                                 buffer, num_octets_to_output, true));
 }
 
 srtp_err_status_t srtp_cipher_encrypt(srtp_cipher_t *c,
                                       const uint8_t *src,
                                       size_t src_len,
                                       uint8_t *dst,
-                                      size_t *dst_len)
+                                      size_t *dst_len,
+                                      bool final)
 {
     if (!c || !c->type || !c->state) {
         return (srtp_err_status_bad_param);
     }
 
-    return (((c)->type)->encrypt(((c)->state), src, src_len, dst, dst_len));
+    return (
+        ((c)->type)->encrypt(((c)->state), src, src_len, dst, dst_len, final));
 }
 
 srtp_err_status_t srtp_cipher_decrypt(srtp_cipher_t *c,
                                       const uint8_t *src,
                                       size_t src_len,
                                       uint8_t *dst,
-                                      size_t *dst_len)
+                                      size_t *dst_len,
+                                      bool final)
 {
     if (!c || !c->type || !c->state) {
         return (srtp_err_status_bad_param);
     }
 
-    return (((c)->type)->decrypt(((c)->state), src, src_len, dst, dst_len));
+    return (
+        ((c)->type)->decrypt(((c)->state), src, src_len, dst, dst_len, final));
 }
 
 srtp_err_status_t srtp_cipher_set_aad(srtp_cipher_t *c,
@@ -284,7 +288,7 @@ srtp_err_status_t srtp_cipher_type_test(
         /* encrypt */
         len = sizeof(buffer);
         status = srtp_cipher_encrypt(
-            c, buffer, test_case->plaintext_length_octets, buffer, &len);
+            c, buffer, test_case->plaintext_length_octets, buffer, &len, true);
         if (status) {
             srtp_cipher_dealloc(c);
             return status;
@@ -372,7 +376,7 @@ srtp_err_status_t srtp_cipher_type_test(
         /* decrypt */
         len = sizeof(buffer);
         status = srtp_cipher_decrypt(
-            c, buffer, test_case->ciphertext_length_octets, buffer, &len);
+            c, buffer, test_case->ciphertext_length_octets, buffer, &len, true);
         if (status) {
             srtp_cipher_dealloc(c);
             return status;
@@ -497,7 +501,7 @@ srtp_err_status_t srtp_cipher_type_test(
         /* encrypt buffer with cipher */
         encrypted_len = sizeof(buffer);
         status = srtp_cipher_encrypt(c, buffer, plaintext_len, buffer,
-                                     &encrypted_len);
+                                     &encrypted_len, true);
         if (status) {
             srtp_cipher_dealloc(c);
             return status;
@@ -538,7 +542,7 @@ srtp_err_status_t srtp_cipher_type_test(
         }
         decrypted_len = sizeof(buffer);
         status = srtp_cipher_decrypt(c, buffer, encrypted_len, buffer,
-                                     &decrypted_len);
+                                     &decrypted_len, true);
         if (status) {
             srtp_cipher_dealloc(c);
             return status;
@@ -632,7 +636,7 @@ uint64_t srtp_cipher_bits_per_second(srtp_cipher_t *c,
 
         // Encrypt the buffer
         out_len = octets_in_buffer + tag_len;
-        if (srtp_cipher_encrypt(c, enc_buf, len, enc_buf, &out_len) !=
+        if (srtp_cipher_encrypt(c, enc_buf, len, enc_buf, &out_len, true) !=
             srtp_err_status_ok) {
             srtp_crypto_free(enc_buf);
             return 0;

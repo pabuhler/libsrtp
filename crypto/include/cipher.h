@@ -101,14 +101,16 @@ typedef srtp_err_status_t (*srtp_cipher_encrypt_func_t)(void *state,
                                                         const uint8_t *src,
                                                         size_t src_len,
                                                         uint8_t *dst,
-                                                        size_t *dst_len);
+                                                        size_t *dst_len,
+                                                        bool final);
 
 /* a srtp_cipher_decrypt_func_t decrypts data in-place */
 typedef srtp_err_status_t (*srtp_cipher_decrypt_func_t)(void *state,
                                                         const uint8_t *src,
                                                         size_t src_len,
                                                         uint8_t *dst,
-                                                        size_t *dst_len);
+                                                        size_t *dst_len,
+                                                        bool final);
 
 /*
  * a srtp_cipher_set_iv_func_t function sets the current initialization vector
@@ -215,12 +217,14 @@ srtp_err_status_t srtp_cipher_encrypt(srtp_cipher_t *c,
                                       const uint8_t *src,
                                       size_t src_len,
                                       uint8_t *dst,
-                                      size_t *dst_len);
+                                      size_t *dst_len,
+                                      bool final);
 srtp_err_status_t srtp_cipher_decrypt(srtp_cipher_t *c,
                                       const uint8_t *src,
                                       size_t src_len,
                                       uint8_t *dst,
-                                      size_t *dst_len);
+                                      size_t *dst_len,
+                                      bool final);
 srtp_err_status_t srtp_cipher_set_aad(srtp_cipher_t *c,
                                       const uint8_t *aad,
                                       size_t aad_len);

@@ -119,9 +119,11 @@ static srtp_err_status_t srtp_null_cipher_encrypt(void *cv,
                                                   const uint8_t *src,
                                                   size_t src_len,
                                                   uint8_t *dst,
-                                                  size_t *dst_len)
+                                                  size_t *dst_len,
+                                                  bool final)
 {
     (void)cv;
+    (void) final;
     if (src != dst) {
         if (*dst_len < src_len) {
             return srtp_err_status_buffer_small;
