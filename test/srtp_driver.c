@@ -2971,6 +2971,9 @@ srtp_err_status_t srtp_validate_cryptex(void)
          */
         debug_print(mod_driver, "test vector: %s\n", vectors[i].name);
 
+        debug_print(mod_driver, "plaintext:\n  %s",
+                    octet_string_hex_string(packet, len));
+
         CHECK_OK(call_srtp_protect(srtp_snd, packet, &len, 0));
         CHECK(len == enc_len);
 

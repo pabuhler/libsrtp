@@ -152,7 +152,7 @@ void check_buffer_equal_impl(const uint8_t *buffer1,
             fprintf(stderr, "buffer2 = %s\n",
                     octet_string_hex_string(buffer2, buffer_length));
             fflush(stderr);
-            exit(1);
+            exit(2);
         }
     }
 }
