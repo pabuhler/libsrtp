@@ -124,4 +124,4 @@ jobs:
     - name: Test
       working-directory: ${{github.workspace}}/build
       shell: bash
-      run: ./srtp_driver -v
+      run: ././srtp_driver -v -d driver -o
