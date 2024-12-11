@@ -86,7 +86,7 @@ jobs:
         brew install autoconf automake libtool
         git clone https://github.com/wolfSSL/wolfssl
         cd wolfssl
-        git checkout v5.7.0-stable
+        git checkout v5.7.4-stable
         ./autogen.sh
         CPU=`sysctl -n machdep.cpu.brand_string`
         if [[ "$CPU" =~ Intel ]]; then
@@ -124,4 +124,4 @@ jobs:
     - name: Test
       working-directory: ${{github.workspace}}/build
       shell: bash
-      run: ctest
+      run: ././srtp_driver -v -d driver -o
