@@ -325,6 +325,8 @@ static srtp_err_status_t srtp_aes_icm_wolfssl_encrypt(void *cv,
     if (*dst_len < src_len) {
         return srtp_err_status_buffer_small;
     }
+    debug_print(srtp_mod_aes_icm, "pt:  %s",
+                srtp_octet_string_hex_string(src, src_len));
 
     err = wc_AesCtrEncrypt(c->ctx, dst, src, src_len);
     if (err < 0) {
@@ -332,6 +334,8 @@ static srtp_err_status_t srtp_aes_icm_wolfssl_encrypt(void *cv,
         return srtp_err_status_cipher_fail;
     }
     *dst_len = src_len;
+    debug_print(srtp_mod_aes_icm, "et:  %s",
+                srtp_octet_string_hex_string(dst, src_len));
 
     return srtp_err_status_ok;
 }
