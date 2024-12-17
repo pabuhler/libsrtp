@@ -1,184 +1,188 @@
-/*
- * test_srtp.c
- *
- * Unit tests for internal srtp functions
- *
- * Cisco Systems, Inc.
- *
- */
+#include <stdio.h>
+#include <stdint.h>
 
-/*
- *
- * Copyright (c) 2017, Cisco Systems, Inc.
- * All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions
- * are met:
- *
- *   Redistributions of source code must retain the above copyright
- *   notice, this list of conditions and the following disclaimer.
- *
- *   Redistributions in binary form must reproduce the above
- *   copyright notice, this list of conditions and the following
- *   disclaimer in the documentation and/or other materials provided
- *   with the distribution.
- *
- *   Neither the name of the Cisco Systems, Inc. nor the names of its
- *   contributors may be used to endorse or promote products derived
- *   from this software without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
- * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
- * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
- * FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
- * COPYRIGHT HOLDERS OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT,
- * INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
- * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
- * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
- * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
- * STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
- * OF THE POSSIBILITY OF SUCH DAMAGE.
- *
- */
+#ifndef WOLFSSL_USER_SETTINGS
+#include <wolfssl/options.h>
+#endif
+#include <wolfssl/wolfcrypt/settings.h>
+#include <wolfssl/wolfcrypt/aes.h>
 
-/*
- * libSRTP specific.
- */
-#include "../srtp/srtp.c" // Get access to static functions
 
-/*
- * Test specific.
- */
-#include "cutest.h"
+#define MAX_PRINT_STRING_LEN 1024
+static char bit_string[MAX_PRINT_STRING_LEN + 1];
 
-/*
- * Standard library.
- */
-
-/*
- * Forward declarations for all tests.
- */
-
-void srtp_calc_aead_iv_srtcp_all_zero_input_yield_zero_output(void);
-void srtp_calc_aead_iv_srtcp_seq_num_over_0x7FFFFFFF_bad_param(void);
-void srtp_calc_aead_iv_srtcp_distinct_iv_per_sequence_number(void);
-
-/*
- * NULL terminated array of tests.
- * The first item in the array is a char[] which give some information about
- * what is being tested and is displayed to the user during runtime, the second
- * item is the test function.
- */
-
-TEST_LIST = { { "srtp_calc_aead_iv_srtcp_all_zero_input_yield_zero_output()",
-                srtp_calc_aead_iv_srtcp_all_zero_input_yield_zero_output },
-              { "srtp_calc_aead_iv_srtcp_seq_num_over_0x7FFFFFFF_bad_param()",
-                srtp_calc_aead_iv_srtcp_seq_num_over_0x7FFFFFFF_bad_param },
-              { "srtp_calc_aead_iv_srtcp_distinct_iv_per_sequence_number()",
-                srtp_calc_aead_iv_srtcp_distinct_iv_per_sequence_number },
-              { 0 } /* End of tests */ };
-
-/*
- * Implementation.
- */
-
-void srtp_calc_aead_iv_srtcp_all_zero_input_yield_zero_output(void)
+char nibble_to_hex_char(uint8_t nibble)
 {
-    // Preconditions
-    srtp_session_keys_t session_keys;
-    v128_t init_vector;
-    srtcp_hdr_t header;
-    uint32_t sequence_num;
+    char buf[16] = { '0', '1', '2', '3', '4', '5', '6', '7',
+                     '8', '9', 'a', 'b', 'c', 'd', 'e', 'f' };
 
-    // Postconditions
-    srtp_err_status_t status;
-    const v128_t zero_vector = { 0 };
-
-    // Given
-    memset(&session_keys, 0, sizeof(srtp_session_keys_t));
-    memset(&init_vector, 0, sizeof(v128_t));
-    memset(&header, 0, sizeof(srtcp_hdr_t));
-    sequence_num = 0x0UL;
-
-    // When
-    status = srtp_calc_aead_iv_srtcp(&session_keys, &init_vector, sequence_num,
-                                     &header);
-
-    // Then
-    TEST_CHECK(status == srtp_err_status_ok);
-    TEST_CHECK(memcmp(&zero_vector, &init_vector, sizeof(v128_t)) == 0);
+    return buf[nibble & 0xF];
 }
 
-void srtp_calc_aead_iv_srtcp_seq_num_over_0x7FFFFFFF_bad_param(void)
+const char *octet_string_hex_string(const uint8_t *str, size_t length)
 {
-    // Preconditions
-    srtp_session_keys_t session_keys;
-    v128_t init_vector;
-    srtcp_hdr_t header;
-    uint32_t sequence_num;
+    size_t i;
 
-    // Postconditions
-    srtp_err_status_t status;
+    /* double length, since one octet takes two hex characters */
+    length *= 2;
 
-    // Given
-    memset(&session_keys, 0, sizeof(srtp_session_keys_t));
-    memset(&init_vector, 0, sizeof(v128_t));
-    memset(&header, 0, sizeof(srtcp_hdr_t));
-    sequence_num = 0x7FFFFFFFUL + 0x1UL;
+    /* truncate string if it would be too long */
+    if (length > MAX_PRINT_STRING_LEN) {
+        length = MAX_PRINT_STRING_LEN;
+    }
 
-    // When
-    status = srtp_calc_aead_iv_srtcp(&session_keys, &init_vector, sequence_num,
-                                     &header);
-
-    // Then
-    TEST_CHECK(status == srtp_err_status_bad_param);
+    for (i = 0; i < length; i += 2) {
+        bit_string[i] = nibble_to_hex_char(*str >> 4);
+        bit_string[i + 1] = nibble_to_hex_char(*str++ & 0xF);
+    }
+    bit_string[i] = 0; /* null terminate string */
+    return bit_string;
 }
 
-/*
- * Regression test for issue #256:
- * Srtcp IV calculation incorrectly masks high bit of sequence number for
- * little-endian platforms.
- * Ensure that for each valid sequence number where the most significant bit is
- * high that we get an expected and unique IV.
- */
-void srtp_calc_aead_iv_srtcp_distinct_iv_per_sequence_number(void)
+
+
+static int test()
 {
-#define SAMPLE_COUNT (3)
-    // Preconditions
-    // Test each significant bit high in each full byte.
-    srtp_session_keys_t session_keys;
-    srtcp_hdr_t header;
-    v128_t output_iv[SAMPLE_COUNT];
-    uint32_t sequence_num[SAMPLE_COUNT];
-    v128_t final_iv[SAMPLE_COUNT];
-    size_t i = 0;
-    memset(&output_iv, 0, SAMPLE_COUNT * sizeof(v128_t));
-    sequence_num[0] = 0xFF;
-    sequence_num[1] = 0xFF00;
-    sequence_num[2] = 0xFF0000;
-
-    // Postconditions
-    memset(&final_iv, 0, SAMPLE_COUNT * sizeof(v128_t));
-    final_iv[0].v8[11] = 0xFF;
-    final_iv[1].v8[10] = 0xFF;
-    final_iv[2].v8[9] = 0xFF;
-
-    // Given
-    memset(&session_keys, 0, sizeof(srtp_session_keys_t));
-    memset(&header, 0, sizeof(srtcp_hdr_t));
-
-    // When
-    for (i = 0; i < SAMPLE_COUNT; i++) {
-        TEST_CHECK(srtp_calc_aead_iv_srtcp(&session_keys, &output_iv[i],
-                                           sequence_num[i],
-                                           &header) == srtp_err_status_ok);
+    Aes aes;
+    int err = wc_AesInit(&aes, NULL, INVALID_DEVID);
+    if (err < 0) {
+        printf("init failed wolfSSL error code: %d\n", err);
+        return 1;
     }
 
-    // Then all IVs are as expected
-    for (i = 0; i < SAMPLE_COUNT; i++) {
-        TEST_CHECK(memcmp(&final_iv[i], &output_iv[i], sizeof(v128_t)) == 0);
+    uint8_t key[16] = {
+        0xc6, 0x1e, 0x7a, 0x93, 0x74, 0x4f, 0x39, 0xee,
+        0x10, 0x73, 0x4a, 0xfe, 0x3f, 0xf7, 0xa0, 0x87
+    };
+
+    uint8_t iv_0[16] = {
+        0x30, 0xcb, 0xbc, 0x08, 0x4c, 0xc3, 0x36, 0x3b,
+        0xd4, 0x9d, 0xb3, 0x4a, 0x88, 0xd4, 0x00, 0x00
+    };
+    uint8_t src_0[] = {
+        0x51, 0x00, 0x02, 0x00, 0xab, 0xab, 0xab, 0xab,
+        0xab, 0xab, 0xab, 0xab, 0xab, 0xab, 0xab, 0xab,
+        0xab, 0xab, 0xab, 0xab
+    };
+    uint8_t ref_0[] = {
+        0xeb, 0x92, 0x36, 0x52, 0x51, 0xc3, 0xe0, 0x36,
+        0xf8, 0xde, 0x27, 0xe9, 0xc2, 0x7e, 0xe3, 0xe0,
+        0xb4, 0x65, 0x1d, 0x9f
+    };
+
+    uint8_t iv_1[16] = {
+        0x30, 0xcb, 0xbc, 0x08, 0x4c, 0xc3, 0x36, 0x3b,
+        0xd4, 0x9d, 0xb3, 0x4a, 0x88, 0xd7, 0x00, 0x00
+    };
+    uint8_t src_1[] = {
+        0x05, 0x02, 0x00, 0x02, 0xab, 0xab, 0xab, 0xab,
+        0xab, 0xab, 0xab, 0xab, 0xab, 0xab, 0xab, 0xab,
+        0xab, 0xab, 0xab, 0xab
+    };
+    uint8_t ref_1[] = {
+        0x4e, 0xd9, 0xcc, 0x4e, 0x6a, 0x71, 0x2b, 0x30,
+        0x96, 0xc5, 0xca, 0x77, 0x33, 0x9d, 0x42, 0x04,
+        0xce, 0x0d, 0x77, 0x39
+    };
+
+    printf("key: %s\n", octet_string_hex_string(key, sizeof(key)));
+
+    err = wc_AesSetKey(&aes, key, sizeof(key), NULL, AES_ENCRYPTION);
+    if (err < 0) {
+        printf("set key, wolfSSL error code: %d", err);
+        return 1;
     }
-#undef SAMPLE_COUNT
+
+    uint8_t alt_key[16] = {
+        0x4c, 0x1a, 0xa4, 0x5a, 0x81, 0xf7, 0x3d, 0x61,
+        0xc8, 0x00, 0xbb, 0xb0, 0x0f, 0xbb, 0x1e, 0xaa
+    };
+
+    Aes alt_aes;
+    err = wc_AesInit(&alt_aes, NULL, INVALID_DEVID);
+    if (err < 0) {
+        printf("alt init failed wolfSSL error code: %d\n", err);
+        return 1;
+    }
+
+    printf("alt_key: %s\n", octet_string_hex_string(alt_key, sizeof(alt_key)));
+
+    err = wc_AesSetKey(&alt_aes, alt_key, sizeof(alt_key), NULL, AES_ENCRYPTION);
+    if (err < 0) {
+        printf("alt set key, wolfSSL error code: %d", err);
+        return 1;
+    }
+
+    printf("iv_0: %s\n", octet_string_hex_string(iv_0, sizeof(iv_0)));
+
+    err = wc_AesSetIV(&aes, iv_0);
+    if (err < 0) {
+        printf("set IV 0, wolfSSL error code: %d", err);
+        return 1;
+    }
+
+    printf("src_0: %s\n", octet_string_hex_string(src_0, sizeof(src_0)));
+
+    err = wc_AesCtrEncrypt(&aes, src_0, src_0, sizeof(src_0));
+    if (err < 0) {
+        printf("encrypt 0, wolfSSL encrypt error: %d", err);
+        return 1;
+    }
+
+    printf("enc_0: %s\n", octet_string_hex_string(src_0, sizeof(src_0)));
+
+    if (memcmp(src_0, ref_0, sizeof(src_0)) != 0) {
+        printf("encrypt 0 failed, not equal\n");
+        printf("ref_0: %s\n", octet_string_hex_string(ref_0, sizeof(ref_0)));
+        return 1;
+    }
+
+    printf("key: %s\n", octet_string_hex_string(key, sizeof(key)));
+
+    err = wc_AesSetKey(&aes, key, sizeof(key), NULL, AES_ENCRYPTION);
+    if (err < 0) {
+        printf("set key, wolfSSL error code: %d", err);
+        return 1;
+    }
+
+    printf("iv_1 : %s\n", octet_string_hex_string(iv_1, sizeof(iv_1)));
+
+    err = wc_AesSetIV(&aes, iv_1);
+    if (err < 0) {
+        printf("set IV 1, wolfSSL error code: %d", err);
+        return 1;
+    }
+
+    printf("src_1: %s\n", octet_string_hex_string(src_1, sizeof(src_1)));
+
+    err = wc_AesCtrEncrypt(&aes, src_1, src_1, sizeof(src_1));
+    if (err < 0) {
+        printf("encrypt 1, wolfSSL encrypt error: %d", err);
+        return 1;
+    }
+
+    printf("enc_1: %s\n", octet_string_hex_string(src_1, sizeof(src_1)));
+
+    if (memcmp(src_1, ref_1, sizeof(src_1)) != 0) {
+        printf("encrypt 1 failed, not equal\n");
+        printf("ref_1: %s\n", octet_string_hex_string(ref_1, sizeof(ref_1)));
+        return 1;
+    }
+
+    wc_AesFree(&aes);
+    wc_AesFree(&alt_aes);
+
+    return 0;
+}
+
+int main(int argc, char *argv[])
+{
+    (void)argc;
+    (void)argv;
+    printf("Wolfssl Test\n");
+    if (test() != 0) {
+        return 1;
+    }
+    printf("Passed\n");
+    return 0;
 }

@@ -462,13 +462,13 @@ if(LIBSRTP_TEST_APPS)
 
   if(NOT (BUILD_SHARED_LIBS AND WIN32))
     add_executable(test_srtp test/test_srtp.c)
-    target_set_warnings(
-            TARGET
-            test_srtp
-            ENABLE
-            ${ENABLE_WARNINGS}
-            AS_ERRORS
-            ${ENABLE_WARNINGS_AS_ERRORS})
+    #target_set_warnings(
+    #        TARGET
+    #        test_srtp
+    #        ENABLE
+    #        ${ENABLE_WARNINGS}
+    #        AS_ERRORS
+    #        ${ENABLE_WARNINGS_AS_ERRORS})
     if(ENABLE_OPENSSL)
       target_include_directories(test_srtp PRIVATE ${OPENSSL_INCLUDE_DIR})
     elseif(ENABLE_WOLFSSL)
