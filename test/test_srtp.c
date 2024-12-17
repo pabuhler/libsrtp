@@ -93,6 +93,26 @@ static int test()
         return 1;
     }
 
+    uint8_t alt_key[16] = {
+        0x4c, 0x1a, 0xa4, 0x5a, 0x81, 0xf7, 0x3d, 0x61,
+        0xc8, 0x00, 0xbb, 0xb0, 0x0f, 0xbb, 0x1e, 0xaa
+    };
+
+    Aes alt_aes;
+    err = wc_AesInit(&alt_aes, NULL, INVALID_DEVID);
+    if (err < 0) {
+        printf("alt init failed wolfSSL error code: %d\n", err);
+        return 1;
+    }
+
+    printf("alt_key: %s\n", octet_string_hex_string(alt_key, sizeof(alt_key)));
+
+    err = wc_AesSetKey(&alt_aes, alt_key, sizeof(alt_key), NULL, AES_ENCRYPTION);
+    if (err < 0) {
+        printf("alt set key, wolfSSL error code: %d", err);
+        return 1;
+    }
+
     printf("iv_0: %s\n", octet_string_hex_string(iv_0, sizeof(iv_0)));
 
     err = wc_AesSetIV(&aes, iv_0);
@@ -150,6 +170,7 @@ static int test()
     }
 
     wc_AesFree(&aes);
+    wc_AesFree(&alt_aes);
 
     return 0;
 }
