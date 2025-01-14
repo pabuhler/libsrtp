@@ -188,7 +188,8 @@ static srtp_err_status_t srtp_hmac_init(void *statev,
     }
 
     /* explicitly cast away const of key */
-    SECItem key_item = { siBuffer, (unsigned char *)(uintptr_t)key, key_len };
+    SECItem key_item = { siBuffer, (unsigned char *)(uintptr_t)key,
+                         (unsigned int)key_len };
     sym_key = PK11_ImportSymKey(slot, CKM_SHA_1_HMAC, PK11_OriginUnwrap,
                                 CKA_SIGN, &key_item, NULL);
     PK11_FreeSlot(slot);
@@ -221,7 +222,7 @@ static srtp_err_status_t srtp_hmac_update(void *statev,
     debug_print(srtp_mod_hmac, "input: %s",
                 srtp_octet_string_hex_string(message, msg_octets));
 
-    if (PK11_DigestOp(hmac->ctx, message, msg_octets) != SECSuccess) {
+    if (PK11_DigestOp(hmac->ctx, message, (unsigned)msg_octets) != SECSuccess) {
         return srtp_err_status_auth_fail;
     }
 
@@ -247,7 +248,8 @@ static srtp_err_status_t srtp_hmac_compute(void *statev,
         return srtp_err_status_bad_param;
     }
 
-    if (PK11_DigestOp(hmac->ctx, message, msg_octets) != SECSuccess) {
+    if (PK11_DigestOp(hmac->ctx, message, (unsigned int)msg_octets) !=
+        SECSuccess) {
         return srtp_err_status_auth_fail;
     }
 

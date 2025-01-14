@@ -225,7 +225,8 @@ static srtp_err_status_t srtp_aes_gcm_wolfssl_context_init(void *cv,
         }
     }
 
-    err = wc_AesGcmSetKey(c->ctx, (const unsigned char *)key, c->key_size);
+    err = wc_AesGcmSetKey(c->ctx, (const unsigned char *)key,
+                          (word32)c->key_size);
     if (err < 0) {
         debug_print(srtp_mod_aes_gcm, "wolfSSL error code:  %d", err);
         return srtp_err_status_init_fail;
@@ -299,9 +300,11 @@ static srtp_err_status_t srtp_aes_gcm_wolfssl_set_aad(void *cv,
     c->aad_size += aad_len;
 #else
     if (c->dir == srtp_direction_encrypt) {
-        err = wc_AesGcmEncryptUpdate(c->ctx, NULL, NULL, 0, aad, aad_len);
+        err =
+            wc_AesGcmEncryptUpdate(c->ctx, NULL, NULL, 0, aad, (word32)aad_len);
     } else {
-        err = wc_AesGcmDecryptUpdate(c->ctx, NULL, NULL, 0, aad, aad_len);
+        err =
+            wc_AesGcmDecryptUpdate(c->ctx, NULL, NULL, 0, aad, (word32)aad_len);
     }
     if (err < 0) {
         debug_print(srtp_mod_aes_gcm, "wolfSSL error code:  %d", err);
@@ -349,12 +352,12 @@ static srtp_err_status_t srtp_aes_gcm_wolfssl_encrypt(void *cv,
         memcpy(dst + src_len, tag, c->tag_len);
     }
 #else
-    err = wc_AesGcmEncryptUpdate(c->ctx, dst, src, src_len, NULL, 0);
+    err = wc_AesGcmEncryptUpdate(c->ctx, dst, src, (word32)src_len, NULL, 0);
     if (err < 0) {
         debug_print(srtp_mod_aes_gcm, "wolfSSL error code:  %d", err);
         return srtp_err_status_algo_fail;
     }
-    err = wc_AesGcmEncryptFinal(c->ctx, dst + src_len, c->tag_len);
+    err = wc_AesGcmEncryptFinal(c->ctx, dst + src_len, (word32)c->tag_len);
 #endif
     if (err < 0) {
         debug_print(srtp_mod_aes_gcm, "wolfSSL error code:  %d", err);
@@ -406,14 +409,14 @@ static srtp_err_status_t srtp_aes_gcm_wolfssl_decrypt(void *cv,
                            c->aad, c->aad_size);
     c->aad_size = 0;
 #else
-    err = wc_AesGcmDecryptUpdate(c->ctx, dst, src, (src_len - c->tag_len), NULL,
-                                 0);
+    err = wc_AesGcmDecryptUpdate(c->ctx, dst, src,
+                                 (word32)(src_len - c->tag_len), NULL, 0);
     if (err < 0) {
         debug_print(srtp_mod_aes_gcm, "wolfSSL error code:  %d", err);
         return srtp_err_status_algo_fail;
     }
-    err =
-        wc_AesGcmDecryptFinal(c->ctx, src + (src_len - c->tag_len), c->tag_len);
+    err = wc_AesGcmDecryptFinal(c->ctx, src + (src_len - c->tag_len),
+                                (word32)c->tag_len);
 #endif
     if (err < 0) {
         debug_print(srtp_mod_aes_gcm, "wolfSSL error code:  %d", err);

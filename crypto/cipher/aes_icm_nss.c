@@ -256,7 +256,7 @@ static srtp_err_status_t srtp_aes_icm_nss_context_init(void *cv,
 
     /* explicitly cast away const of key */
     SECItem keyItem = { siBuffer, (unsigned char *)(uintptr_t)key,
-                        c->key_size };
+                        (unsigned int)c->key_size };
     c->key = PK11_ImportSymKey(slot, CKM_AES_CTR, PK11_OriginUnwrap,
                                CKA_ENCRYPT, &keyItem, NULL);
     PK11_FreeSlot(slot);
@@ -343,7 +343,8 @@ static srtp_err_status_t srtp_aes_icm_nss_encrypt(void *cv,
     }
 
     int out_len = 0;
-    int rv = PK11_CipherOp(c->ctx, dst, &out_len, *dst_len, src, src_len);
+    int rv = PK11_CipherOp(c->ctx, dst, &out_len, (unsigned int)*dst_len, src,
+                           (unsigned int)src_len);
     *dst_len = out_len;
     srtp_err_status_t status = srtp_err_status_ok;
     if (rv != SECSuccess) {

@@ -326,7 +326,7 @@ static srtp_err_status_t srtp_aes_icm_wolfssl_encrypt(void *cv,
         return srtp_err_status_buffer_small;
     }
 
-    err = wc_AesCtrEncrypt(c->ctx, dst, src, src_len);
+    err = wc_AesCtrEncrypt(c->ctx, dst, src, (word32)src_len);
     if (err < 0) {
         debug_print(srtp_mod_aes_icm, "wolfSSL encrypt error: %d", err);
         return srtp_err_status_cipher_fail;

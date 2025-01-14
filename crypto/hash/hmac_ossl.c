@@ -240,7 +240,7 @@ static srtp_err_status_t srtp_hmac_init(void *statev,
         return srtp_err_status_auth_fail;
     }
 #else
-    if (HMAC_Init_ex(hmac->ctx, key, key_len, EVP_sha1(), NULL) == 0) {
+    if (HMAC_Init_ex(hmac->ctx, key, (int)key_len, EVP_sha1(), NULL) == 0) {
         return srtp_err_status_auth_fail;
     }
 #endif
