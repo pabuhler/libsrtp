@@ -327,6 +327,29 @@ typedef struct srtp_master_key_t {
  *          set to NULL.
  */
 
+/*
+init_from_profile(profile, key, key_len)
+
+go away from chained policy/config
+
+call add stream with policy multiple times.
+config
+
+srtp_stream_config_t
+srtp_config_t
+
+srtp_stream_config_t
+
+
+srtp_init(srtp_t)
+srtp_session_create(srtp_ctx, )
+srtp_stream_add() (ssrc or wildcard)
+srtp_stream_update() (ssrc or wildcard)
+srtp_stream_remove() (ssrc or wildcard)
+srtp_destroy()
+
+*/
+
 typedef struct srtp_policy_t {
     srtp_ssrc_t ssrc;           /**< The SSRC value of stream, or the    */
                                 /**< flags SSRC_ANY_INBOUND or           */
