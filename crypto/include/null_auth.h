@@ -52,6 +52,7 @@ extern "C" {
 #endif
 
 typedef struct {
+    srtp_runtime_t runtime;
     char foo;
 } srtp_null_auth_ctx_t;
 

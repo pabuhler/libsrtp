@@ -75,16 +75,17 @@ srtp_debug_module_t srtp_mod_aes_gcm = {
  * key length includes the 14 byte salt value that is used when
  * initializing the KDF.
  */
-static srtp_err_status_t srtp_aes_gcm_openssl_alloc(srtp_cipher_t **c,
+static srtp_err_status_t srtp_aes_gcm_openssl_alloc(srtp_runtime_t runtime,
+                                                    srtp_cipher_t **c,
                                                     size_t key_len,
                                                     size_t tlen)
 {
     srtp_aes_gcm_ctx_t *gcm;
 
-    debug_print(srtp_mod_aes_gcm, "allocating cipher with key length %zu",
-                key_len);
-    debug_print(srtp_mod_aes_gcm, "allocating cipher with tag length %zu",
-                tlen);
+    debug_print(runtime, srtp_mod_aes_gcm,
+                "allocating cipher with key length %zu", key_len);
+    debug_print(runtime, srtp_mod_aes_gcm,
+                "allocating cipher with tag length %zu", tlen);
 
     /*
      * Verify the key_len is valid for one of: AES-128/256
@@ -120,7 +121,9 @@ static srtp_err_status_t srtp_aes_gcm_openssl_alloc(srtp_cipher_t **c,
     }
 
     /* set pointers */
+    (*c)->runtime = runtime;
     (*c)->state = gcm;
+    gcm->runtime = runtime;
 
     /* setup cipher attributes */
     switch (key_len) {
@@ -179,7 +182,7 @@ static srtp_err_status_t srtp_aes_gcm_openssl_context_init(void *cv,
 
     c->dir = srtp_direction_any;
 
-    debug_print(srtp_mod_aes_gcm, "key:  %s",
+    debug_print(c->runtime, srtp_mod_aes_gcm, "key:  %s",
                 srtp_octet_string_hex_string(key, c->key_size));
 
     switch (c->key_size) {
@@ -224,7 +227,7 @@ static srtp_err_status_t srtp_aes_gcm_openssl_set_iv(
     }
     c->dir = direction;
 
-    debug_print(srtp_mod_aes_gcm, "setting iv: %s",
+    debug_print(c->runtime, srtp_mod_aes_gcm, "setting iv: %s",
                 srtp_octet_string_hex_string(iv, 12));
 
     if (c->dir == srtp_direction_encrypt) {
@@ -255,7 +258,7 @@ static srtp_err_status_t srtp_aes_gcm_openssl_set_aad(void *cv,
     srtp_aes_gcm_ctx_t *c = (srtp_aes_gcm_ctx_t *)cv;
     int len = 0;
 
-    debug_print(srtp_mod_aes_gcm, "setting AAD: %s",
+    debug_print(c->runtime, srtp_mod_aes_gcm, "setting AAD: %s",
                 srtp_octet_string_hex_string(aad, aad_len));
 
     if (c->dir == srtp_direction_encrypt) {

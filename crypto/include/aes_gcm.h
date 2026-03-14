@@ -56,6 +56,7 @@
 #include <openssl/aes.h>
 
 typedef struct {
+    srtp_runtime_t runtime;
     size_t key_size;
     size_t tag_len;
     EVP_CIPHER_CTX *ctx;
@@ -76,6 +77,7 @@ typedef struct {
 #include <wolfssl/wolfcrypt/aes.h>
 
 typedef struct {
+    srtp_runtime_t runtime;
     size_t key_size;
     size_t tag_len;
 #ifndef WOLFSSL_AESGCM_STREAM
@@ -103,6 +105,7 @@ typedef struct psa_gcm_context {
 } psa_gcm_context;
 
 typedef struct {
+    srtp_runtime_t runtime;
     size_t key_size;
     size_t tag_len;
     size_t aad_size;
@@ -125,6 +128,7 @@ typedef struct {
 #define MAX_AD_SIZE 2048
 
 typedef struct {
+    srtp_runtime_t runtime;
     size_t key_size;
     size_t tag_size;
     srtp_cipher_direction_t dir;

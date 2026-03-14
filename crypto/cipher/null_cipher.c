@@ -54,15 +54,17 @@
 #include "alloc.h"
 #include "cipher_types.h"
 
-static srtp_err_status_t srtp_null_cipher_alloc(srtp_cipher_t **c,
+static srtp_err_status_t srtp_null_cipher_alloc(srtp_runtime_t runtime,
+                                                srtp_cipher_t **c,
                                                 size_t key_len,
                                                 size_t tlen)
 {
     extern const srtp_cipher_type_t srtp_null_cipher;
+    srtp_null_cipher_ctx_t *null_cipher;
     (void)tlen;
 
-    debug_print(srtp_mod_cipher, "allocating cipher with key length %zu",
-                key_len);
+    debug_print(runtime, srtp_mod_cipher,
+                "allocating cipher with key length %zu", key_len);
 
     /* allocate memory a cipher of type null_cipher */
     *c = (srtp_cipher_t *)srtp_crypto_alloc(sizeof(srtp_cipher_t));
@@ -70,10 +72,20 @@ static srtp_err_status_t srtp_null_cipher_alloc(srtp_cipher_t **c,
         return srtp_err_status_alloc_fail;
     }
 
+    null_cipher = srtp_crypto_alloc(sizeof(srtp_null_cipher_ctx_t));
+    if (null_cipher == NULL) {
+        srtp_crypto_free(*c);
+        *c = NULL;
+        return srtp_err_status_alloc_fail;
+    }
+
+    null_cipher->runtime = runtime;
+
     /* set pointers */
+    (*c)->runtime = runtime;
     (*c)->algorithm = SRTP_NULL_CIPHER;
     (*c)->type = &srtp_null_cipher;
-    (*c)->state = (void *)0x1; /* The null cipher does not maintain state */
+    (*c)->state = null_cipher;
 
     /* set key size */
     (*c)->key_len = key_len;
@@ -83,7 +95,13 @@ static srtp_err_status_t srtp_null_cipher_alloc(srtp_cipher_t **c,
 
 static srtp_err_status_t srtp_null_cipher_dealloc(srtp_cipher_t *c)
 {
-    extern const srtp_cipher_type_t srtp_null_cipher;
+    srtp_null_cipher_ctx_t *null_cipher;
+
+    null_cipher = c->state;
+    if (null_cipher != NULL) {
+        octet_string_set_to_zero(null_cipher, sizeof(*null_cipher));
+        srtp_crypto_free(null_cipher);
+    }
 
     /* zeroize entire state*/
     octet_string_set_to_zero(c, sizeof(srtp_cipher_t));
@@ -96,10 +114,9 @@ static srtp_err_status_t srtp_null_cipher_dealloc(srtp_cipher_t *c)
 
 static srtp_err_status_t srtp_null_cipher_init(void *cv, const uint8_t *key)
 {
-    /* srtp_null_cipher_ctx_t *c = (srtp_null_cipher_ctx_t *)cv; */
-    (void)cv;
+    srtp_null_cipher_ctx_t *c = (srtp_null_cipher_ctx_t *)cv;
     (void)key;
-    debug_print0(srtp_mod_cipher, "initializing null cipher");
+    debug_print0(c->runtime, srtp_mod_cipher, "initializing null cipher");
 
     return srtp_err_status_ok;
 }

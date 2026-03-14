@@ -56,7 +56,8 @@ extern "C" {
 typedef const struct srtp_auth_type_t *srtp_auth_type_pointer;
 typedef struct srtp_auth_t *srtp_auth_pointer_t;
 
-typedef srtp_err_status_t (*srtp_auth_alloc_func)(srtp_auth_pointer_t *ap,
+typedef srtp_err_status_t (*srtp_auth_alloc_func)(srtp_runtime_t runtime,
+                                                  srtp_auth_pointer_t *ap,
                                                   size_t key_len,
                                                   size_t out_len);
 
@@ -79,8 +80,8 @@ typedef srtp_err_status_t (*srtp_auth_update_func)(void *state,
 typedef srtp_err_status_t (*srtp_auth_start_func)(void *state);
 
 /* some syntactic sugar on these function types */
-#define srtp_auth_type_alloc(at, a, klen, outlen)                              \
-    ((at)->alloc((a), (klen), (outlen)))
+#define srtp_auth_type_alloc(runtime, at, a, klen, outlen)                     \
+    ((at)->alloc((runtime), (a), (klen), (outlen)))
 
 #define srtp_auth_init(a, key)                                                 \
     (((a)->type)->init((a)->state, (key), ((a)->key_len)))
@@ -134,6 +135,7 @@ typedef struct srtp_auth_type_t {
 } srtp_auth_type_t;
 
 typedef struct srtp_auth_t {
+    srtp_runtime_t runtime;
     const srtp_auth_type_t *type;
     void *state;
     size_t out_len;    /* length of output tag in octets */
@@ -146,14 +148,16 @@ typedef struct srtp_auth_t {
  * provided in an array of values of key/message/tag that is known to
  * be good
  */
-srtp_err_status_t srtp_auth_type_self_test(const srtp_auth_type_t *at);
+srtp_err_status_t srtp_auth_type_self_test(srtp_runtime_t runtime,
+                                           const srtp_auth_type_t *at);
 
 /*
  * srtp_auth_type_test() tests an auth_type against external test cases
  * provided in an array of values of key/message/tag that is known to
  * be good
  */
-srtp_err_status_t srtp_auth_type_test(const srtp_auth_type_t *at,
+srtp_err_status_t srtp_auth_type_test(srtp_runtime_t runtime,
+                                      const srtp_auth_type_t *at,
                                       const srtp_auth_test_case_t *test_data);
 
 /*
@@ -163,7 +167,8 @@ srtp_err_status_t srtp_auth_type_test(const srtp_auth_type_t *at,
  * with a new one passed in externally.  The new auth type must pass all the
  * existing auth_type's self tests as well as its own.
  */
-srtp_err_status_t srtp_replace_auth_type(const srtp_auth_type_t *ct,
+srtp_err_status_t srtp_replace_auth_type(srtp_runtime_t runtime,
+                                         const srtp_auth_type_t *ct,
                                          srtp_auth_type_id_t id);
 
 #ifdef __cplusplus

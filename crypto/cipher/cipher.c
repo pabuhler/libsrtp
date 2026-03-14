@@ -61,7 +61,8 @@ srtp_debug_module_t srtp_mod_cipher = {
     "cipher" /* printable module name       */
 };
 
-srtp_err_status_t srtp_cipher_type_alloc(const srtp_cipher_type_t *ct,
+srtp_err_status_t srtp_cipher_type_alloc(srtp_runtime_t runtime,
+                                         const srtp_cipher_type_t *ct,
                                          srtp_cipher_t **c,
                                          size_t key_len,
                                          size_t tlen)
@@ -69,7 +70,7 @@ srtp_err_status_t srtp_cipher_type_alloc(const srtp_cipher_type_t *ct,
     if (!ct || !ct->alloc) {
         return (srtp_err_status_bad_param);
     }
-    return ((ct)->alloc((c), (key_len), (tlen)));
+    return ((ct)->alloc(runtime, (c), (key_len), (tlen)));
 }
 
 srtp_err_status_t srtp_cipher_dealloc(srtp_cipher_t *c)
@@ -196,6 +197,7 @@ uint32_t srtp_cipher_rand_u32_for_tests(void)
  * plaintext, and ciphertext that is known to be good
  */
 srtp_err_status_t srtp_cipher_type_test(
+    srtp_runtime_t runtime,
     const srtp_cipher_type_t *ct,
     const srtp_cipher_test_case_t *test_data)
 {
@@ -207,7 +209,7 @@ srtp_err_status_t srtp_cipher_type_test(
     size_t len;
     size_t case_num = 0;
 
-    debug_print(srtp_mod_cipher, "running self-test for cipher %s",
+    debug_print(runtime, srtp_mod_cipher, "running self-test for cipher %s",
                 ct->description);
 
     /*
@@ -224,7 +226,8 @@ srtp_err_status_t srtp_cipher_type_test(
      */
     while (test_case != NULL) {
         /* allocate cipher */
-        status = srtp_cipher_type_alloc(ct, &c, test_case->key_length_octets,
+        status = srtp_cipher_type_alloc(runtime, ct, &c,
+                                        test_case->key_length_octets,
                                         test_case->tag_length_octets);
         if (status) {
             return status;
@@ -233,7 +236,7 @@ srtp_err_status_t srtp_cipher_type_test(
         /*
          * test the encrypt function
          */
-        debug_print0(srtp_mod_cipher, "testing encryption");
+        debug_print0(runtime, srtp_mod_cipher, "testing encryption");
 
         /* initialize cipher */
         status = srtp_cipher_init(c, test_case->key);
@@ -251,7 +254,7 @@ srtp_err_status_t srtp_cipher_type_test(
             buffer[k] = test_case->plaintext[k];
         }
 
-        debug_print(srtp_mod_cipher, "plaintext:    %s",
+        debug_print(runtime, srtp_mod_cipher, "plaintext:    %s",
                     srtp_octet_string_hex_string(
                         buffer, test_case->plaintext_length_octets));
 
@@ -264,7 +267,7 @@ srtp_err_status_t srtp_cipher_type_test(
 
         if (c->algorithm == SRTP_AES_GCM_128 ||
             c->algorithm == SRTP_AES_GCM_256) {
-            debug_print(srtp_mod_cipher, "IV:    %s",
+            debug_print(runtime, srtp_mod_cipher, "IV:    %s",
                         srtp_octet_string_hex_string(test_case->idx, 12));
 
             /*
@@ -276,7 +279,7 @@ srtp_err_status_t srtp_cipher_type_test(
                 srtp_cipher_dealloc(c);
                 return status;
             }
-            debug_print(srtp_mod_cipher, "AAD:    %s",
+            debug_print(runtime, srtp_mod_cipher, "AAD:    %s",
                         srtp_octet_string_hex_string(
                             test_case->aad, test_case->aad_length_octets));
         }
@@ -290,7 +293,7 @@ srtp_err_status_t srtp_cipher_type_test(
             return status;
         }
 
-        debug_print(srtp_mod_cipher, "ciphertext:   %s",
+        debug_print(runtime, srtp_mod_cipher, "ciphertext:   %s",
                     srtp_octet_string_hex_string(
                         buffer, test_case->ciphertext_length_octets));
 
@@ -303,16 +306,16 @@ srtp_err_status_t srtp_cipher_type_test(
         for (size_t k = 0; k < test_case->ciphertext_length_octets; k++) {
             if (buffer[k] != test_case->ciphertext[k]) {
                 status = srtp_err_status_algo_fail;
-                debug_print(srtp_mod_cipher, "test case %zu failed", case_num);
-                debug_print(srtp_mod_cipher, "(failure at byte %zu)", k);
+                debug_print(runtime, srtp_mod_cipher, "test case %zu failed", case_num);
+                debug_print(runtime, srtp_mod_cipher, "(failure at byte %zu)", k);
                 break;
             }
         }
         if (status) {
-            debug_print(srtp_mod_cipher, "c computed: %s",
+            debug_print(runtime, srtp_mod_cipher, "c computed: %s",
                         srtp_octet_string_hex_string(
                             buffer, 2 * test_case->plaintext_length_octets));
-            debug_print(srtp_mod_cipher, "c expected: %s",
+            debug_print(runtime, srtp_mod_cipher, "c expected: %s",
                         srtp_octet_string_hex_string(
                             test_case->ciphertext,
                             2 * test_case->plaintext_length_octets));
@@ -324,7 +327,7 @@ srtp_err_status_t srtp_cipher_type_test(
         /*
          * test the decrypt function
          */
-        debug_print0(srtp_mod_cipher, "testing decryption");
+        debug_print0(runtime, srtp_mod_cipher, "testing decryption");
 
         /* re-initialize cipher for decryption */
         status = srtp_cipher_init(c, test_case->key);
@@ -342,7 +345,7 @@ srtp_err_status_t srtp_cipher_type_test(
             buffer[k] = test_case->ciphertext[k];
         }
 
-        debug_print(srtp_mod_cipher, "ciphertext:    %s",
+        debug_print(runtime, srtp_mod_cipher, "ciphertext:    %s",
                     srtp_octet_string_hex_string(
                         buffer, test_case->plaintext_length_octets));
 
@@ -364,7 +367,7 @@ srtp_err_status_t srtp_cipher_type_test(
                 srtp_cipher_dealloc(c);
                 return status;
             }
-            debug_print(srtp_mod_cipher, "AAD:    %s",
+            debug_print(runtime, srtp_mod_cipher, "AAD:    %s",
                         srtp_octet_string_hex_string(
                             test_case->aad, test_case->aad_length_octets));
         }
@@ -378,7 +381,7 @@ srtp_err_status_t srtp_cipher_type_test(
             return status;
         }
 
-        debug_print(srtp_mod_cipher, "plaintext:     %s",
+        debug_print(runtime, srtp_mod_cipher, "plaintext:     %s",
                     srtp_octet_string_hex_string(
                         buffer, test_case->plaintext_length_octets));
 
@@ -391,15 +394,15 @@ srtp_err_status_t srtp_cipher_type_test(
         for (size_t k = 0; k < test_case->plaintext_length_octets; k++) {
             if (buffer[k] != test_case->plaintext[k]) {
                 status = srtp_err_status_algo_fail;
-                debug_print(srtp_mod_cipher, "test case %zu failed", case_num);
-                debug_print(srtp_mod_cipher, "(failure at byte %zu)", k);
+                debug_print(runtime, srtp_mod_cipher, "test case %zu failed", case_num);
+                debug_print(runtime, srtp_mod_cipher, "(failure at byte %zu)", k);
             }
         }
         if (status) {
-            debug_print(srtp_mod_cipher, "p computed: %s",
+            debug_print(runtime, srtp_mod_cipher, "p computed: %s",
                         srtp_octet_string_hex_string(
                             buffer, 2 * test_case->plaintext_length_octets));
-            debug_print(srtp_mod_cipher, "p expected: %s",
+            debug_print(runtime, srtp_mod_cipher, "p expected: %s",
                         srtp_octet_string_hex_string(
                             test_case->plaintext,
                             2 * test_case->plaintext_length_octets));
@@ -426,7 +429,8 @@ srtp_err_status_t srtp_cipher_type_test(
 
     /* allocate cipher, using paramaters from the first test case */
     test_case = test_data;
-    status = srtp_cipher_type_alloc(ct, &c, test_case->key_length_octets,
+    status = srtp_cipher_type_alloc(runtime, ct, &c,
+                                    test_case->key_length_octets,
                                     test_case->tag_length_octets);
     if (status) {
         return status;
@@ -442,11 +446,11 @@ srtp_err_status_t srtp_cipher_type_test(
         /* choose a length at random (leaving room for IV and padding) */
         plaintext_len =
             srtp_cipher_rand_u32_for_tests() % (SELF_TEST_BUF_OCTETS - 64);
-        debug_print(srtp_mod_cipher, "random plaintext length %zu\n",
+        debug_print(runtime, srtp_mod_cipher, "random plaintext length %zu\n",
                     plaintext_len);
         srtp_cipher_rand_for_tests(buffer, plaintext_len);
 
-        debug_print(srtp_mod_cipher, "plaintext:    %s",
+        debug_print(runtime, srtp_mod_cipher, "plaintext:    %s",
                     srtp_octet_string_hex_string(buffer, plaintext_len));
 
         /* copy plaintext into second buffer */
@@ -489,7 +493,7 @@ srtp_err_status_t srtp_cipher_type_test(
                 srtp_cipher_dealloc(c);
                 return status;
             }
-            debug_print(srtp_mod_cipher, "AAD:    %s",
+            debug_print(runtime, srtp_mod_cipher, "AAD:    %s",
                         srtp_octet_string_hex_string(
                             test_case->aad, test_case->aad_length_octets));
         }
@@ -503,7 +507,7 @@ srtp_err_status_t srtp_cipher_type_test(
             return status;
         }
 
-        debug_print(srtp_mod_cipher, "ciphertext:   %s",
+        debug_print(runtime, srtp_mod_cipher, "ciphertext:   %s",
                     srtp_octet_string_hex_string(buffer, encrypted_len));
 
         /*
@@ -532,7 +536,7 @@ srtp_err_status_t srtp_cipher_type_test(
                 srtp_cipher_dealloc(c);
                 return status;
             }
-            debug_print(srtp_mod_cipher, "AAD:    %s",
+            debug_print(runtime, srtp_mod_cipher, "AAD:    %s",
                         srtp_octet_string_hex_string(
                             test_case->aad, test_case->aad_length_octets));
         }
@@ -544,7 +548,7 @@ srtp_err_status_t srtp_cipher_type_test(
             return status;
         }
 
-        debug_print(srtp_mod_cipher, "plaintext[2]: %s",
+        debug_print(runtime, srtp_mod_cipher, "plaintext[2]: %s",
                     srtp_octet_string_hex_string(buffer, decrypted_len));
 
         /* compare the resulting plaintext with the original one */
@@ -556,9 +560,9 @@ srtp_err_status_t srtp_cipher_type_test(
         for (size_t k = 0; k < plaintext_len; k++) {
             if (buffer[k] != buffer2[k]) {
                 status = srtp_err_status_algo_fail;
-                debug_print(srtp_mod_cipher, "random test case %zu failed",
+                debug_print(runtime, srtp_mod_cipher, "random test case %zu failed",
                             case_num);
-                debug_print(srtp_mod_cipher, "(failure at byte %zu)", k);
+                debug_print(runtime, srtp_mod_cipher, "(failure at byte %zu)", k);
             }
         }
         if (status) {
@@ -579,9 +583,10 @@ srtp_err_status_t srtp_cipher_type_test(
  * srtp_cipher_type_self_test(ct) performs srtp_cipher_type_test on ct's
  * internal list of test data.
  */
-srtp_err_status_t srtp_cipher_type_self_test(const srtp_cipher_type_t *ct)
+srtp_err_status_t srtp_cipher_type_self_test(srtp_runtime_t runtime,
+                                             const srtp_cipher_type_t *ct)
 {
-    return srtp_cipher_type_test(ct, ct->test_data);
+    return srtp_cipher_type_test(runtime, ct, ct->test_data);
 }
 
 /*

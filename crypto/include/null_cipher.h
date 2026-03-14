@@ -51,6 +51,7 @@
 #include "cipher.h"
 
 typedef struct {
+    srtp_runtime_t runtime;
     char foo; /* empty, for now */
 } srtp_null_cipher_ctx_t;
 

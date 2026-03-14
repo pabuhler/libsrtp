@@ -211,8 +211,9 @@ void srtp_sha1_core(const uint32_t M[16], uint32_t hash_value[5])
     return;
 }
 
-void srtp_sha1_init(srtp_sha1_ctx_t *ctx)
+void srtp_sha1_init(srtp_sha1_ctx_t *ctx, srtp_runtime_t runtime)
 {
+    ctx->runtime = runtime;
     /* initialize state vector */
     ctx->H[0] = 0x67452301;
     ctx->H[1] = 0xefcdab89;
@@ -252,12 +253,13 @@ void srtp_sha1_update(srtp_sha1_ctx_t *ctx,
 
             /* process a whole block */
 
-            debug_print0(srtp_mod_sha1, "(update) running srtp_sha1_core()");
+            debug_print0(ctx->runtime, srtp_mod_sha1,
+                         "(update) running srtp_sha1_core()");
 
             srtp_sha1_core(ctx->M, ctx->H);
 
         } else {
-            debug_print0(srtp_mod_sha1,
+            debug_print0(ctx->runtime, srtp_mod_sha1,
                          "(update) not running srtp_sha1_core()");
 
             for (i = ctx->octets_in_buffer;
@@ -381,10 +383,12 @@ void srtp_sha1_final(srtp_sha1_ctx_t *ctx, uint32_t output[5])
         ctx->H[4] += E;
     }
 
-    debug_print0(srtp_mod_sha1, "(final) running srtp_sha1_core()");
+    debug_print0(ctx->runtime, srtp_mod_sha1,
+                 "(final) running srtp_sha1_core()");
 
     if (ctx->octets_in_buffer >= 56) {
-        debug_print0(srtp_mod_sha1, "(final) running srtp_sha1_core() again");
+        debug_print0(ctx->runtime, srtp_mod_sha1,
+                     "(final) running srtp_sha1_core() again");
 
         /* we need to do one final run of the compression algo */
 

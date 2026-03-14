@@ -86,6 +86,7 @@ srtp_debug_module_t srtp_mod_hmac = {
  */
 
 typedef struct {
+    srtp_runtime_t runtime;
 #ifdef SRTP_OSSL_USE_EVP_MAC
     EVP_MAC *mac;
     EVP_MAC_CTX *ctx;
@@ -96,17 +97,18 @@ typedef struct {
 #endif
 } srtp_hmac_ossl_ctx_t;
 
-static srtp_err_status_t srtp_hmac_alloc(srtp_auth_t **a,
+static srtp_err_status_t srtp_hmac_alloc(srtp_runtime_t runtime,
+                                         srtp_auth_t **a,
                                          size_t key_len,
                                          size_t out_len)
 {
     extern const srtp_auth_type_t srtp_hmac;
     srtp_hmac_ossl_ctx_t *hmac;
 
-    debug_print(srtp_mod_hmac, "allocating auth func with key length %zu",
-                key_len);
-    debug_print(srtp_mod_hmac, "                          tag length %zu",
-                out_len);
+    debug_print(runtime, srtp_mod_hmac,
+                "allocating auth func with key length %zu", key_len);
+    debug_print(runtime, srtp_mod_hmac,
+                "                          tag length %zu", out_len);
 
     /* check output length - should be less than 20 bytes */
     if (out_len > SHA1_DIGEST_SIZE) {
@@ -148,7 +150,7 @@ static srtp_err_status_t srtp_hmac_alloc(srtp_auth_t **a,
         OpenSSL_version_num() < SRTP_OSSL_MIN_REINIT_VERSION ? 1 : 0;
 
     if (hmac->use_dup) {
-        debug_print0(srtp_mod_hmac, "using EVP_MAC_CTX_dup");
+        debug_print0(runtime, srtp_mod_hmac, "using EVP_MAC_CTX_dup");
         hmac->ctx_dup = hmac->ctx;
         hmac->ctx = NULL;
     }
@@ -163,6 +165,8 @@ static srtp_err_status_t srtp_hmac_alloc(srtp_auth_t **a,
 #endif
 
     /* set pointers */
+    hmac->runtime = runtime;
+    (*a)->runtime = runtime;
     (*a)->state = hmac;
     (*a)->type = &srtp_hmac;
     (*a)->out_len = out_len;
@@ -253,7 +257,7 @@ static srtp_err_status_t srtp_hmac_update(void *statev,
 {
     srtp_hmac_ossl_ctx_t *hmac = (srtp_hmac_ossl_ctx_t *)statev;
 
-    debug_print(srtp_mod_hmac, "input: %s",
+    debug_print(hmac->runtime, srtp_mod_hmac, "input: %s",
                 srtp_octet_string_hex_string(message, msg_octets));
 
 #ifdef SRTP_OSSL_USE_EVP_MAC
@@ -282,7 +286,7 @@ static srtp_err_status_t srtp_hmac_compute(void *statev,
     unsigned int len;
 #endif
 
-    debug_print(srtp_mod_hmac, "input: %s",
+    debug_print(hmac->runtime, srtp_mod_hmac, "input: %s",
                 srtp_octet_string_hex_string(message, msg_octets));
 
     /* check tag length, return error if we can't provide the value expected */
@@ -317,7 +321,7 @@ static srtp_err_status_t srtp_hmac_compute(void *statev,
         result[i] = hash_value[i];
     }
 
-    debug_print(srtp_mod_hmac, "output: %s",
+    debug_print(hmac->runtime, srtp_mod_hmac, "output: %s",
                 srtp_octet_string_hex_string(hash_value, tag_len));
 
     return srtp_err_status_ok;

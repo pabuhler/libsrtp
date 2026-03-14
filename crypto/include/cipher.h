@@ -75,7 +75,8 @@ typedef struct srtp_cipher_t *srtp_cipher_pointer_t;
  *  a srtp_cipher_alloc_func_t allocates (but does not initialize) a
  * srtp_cipher_t
  */
-typedef srtp_err_status_t (*srtp_cipher_alloc_func_t)(srtp_cipher_pointer_t *cp,
+typedef srtp_err_status_t (*srtp_cipher_alloc_func_t)(srtp_runtime_t runtime,
+                                                      srtp_cipher_pointer_t *cp,
                                                       size_t key_len,
                                                       size_t tag_len);
 
@@ -159,6 +160,7 @@ typedef struct srtp_cipher_type_t {
  * key length, key and salt values
  */
 typedef struct srtp_cipher_t {
+    srtp_runtime_t runtime;
     const srtp_cipher_type_t *type;
     void *state;
     size_t key_len;
@@ -173,7 +175,8 @@ size_t srtp_cipher_get_key_length(const srtp_cipher_t *c);
  * an array of values of key/srtp_xtd_seq_num_t/plaintext/ciphertext
  * that is known to be good
  */
-srtp_err_status_t srtp_cipher_type_self_test(const srtp_cipher_type_t *ct);
+srtp_err_status_t srtp_cipher_type_self_test(srtp_runtime_t runtime,
+                                             const srtp_cipher_type_t *ct);
 
 /*
  * srtp_cipher_type_test() tests a cipher against external test cases provided
@@ -182,6 +185,7 @@ srtp_err_status_t srtp_cipher_type_self_test(const srtp_cipher_type_t *ct);
  * that is known to be good
  */
 srtp_err_status_t srtp_cipher_type_test(
+    srtp_runtime_t runtime,
     const srtp_cipher_type_t *ct,
     const srtp_cipher_test_case_t *test_data);
 
@@ -199,7 +203,8 @@ uint64_t srtp_cipher_bits_per_second(srtp_cipher_t *c,
                                      size_t octets_in_buffer,
                                      size_t num_trials);
 
-srtp_err_status_t srtp_cipher_type_alloc(const srtp_cipher_type_t *ct,
+srtp_err_status_t srtp_cipher_type_alloc(srtp_runtime_t runtime,
+                                         const srtp_cipher_type_t *ct,
                                          srtp_cipher_t **c,
                                          size_t key_len,
                                          size_t tlen);
@@ -232,7 +237,8 @@ srtp_err_status_t srtp_cipher_set_aad(srtp_cipher_t *c,
  * with a new one passed in externally.  The new cipher must pass all the
  * existing cipher_type's self tests as well as its own.
  */
-srtp_err_status_t srtp_replace_cipher_type(const srtp_cipher_type_t *ct,
+srtp_err_status_t srtp_replace_cipher_type(srtp_runtime_t runtime,
+                                           const srtp_cipher_type_t *ct,
                                            srtp_cipher_type_id_t id);
 
 #ifdef __cplusplus

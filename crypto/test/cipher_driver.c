@@ -231,7 +231,7 @@ int main(int argc, char *argv[])
     }
 
     /* do timing and/or buffer_test on srtp_null_cipher */
-    status = srtp_cipher_type_alloc(&srtp_null_cipher, &c, 0, 0);
+    status = srtp_cipher_type_alloc(NULL, &srtp_null_cipher, &c, 0, 0);
     CHECK_OK(status);
 
     status = srtp_cipher_init(c, NULL);
@@ -248,7 +248,7 @@ int main(int argc, char *argv[])
     CHECK_OK(status);
 
     /* run the throughput test on the aes_icm cipher (128-bit key) */
-    status = srtp_cipher_type_alloc(&srtp_aes_icm_128, &c,
+    status = srtp_cipher_type_alloc(NULL, &srtp_aes_icm_128, &c,
                                     SRTP_AES_ICM_128_KEY_LEN_WSALT, 0);
     if (status) {
         fprintf(stderr, "error: can't allocate cipher\n");
@@ -271,7 +271,7 @@ int main(int argc, char *argv[])
     CHECK_OK(status);
 
     /* repeat the tests with 256-bit keys */
-    status = srtp_cipher_type_alloc(&srtp_aes_icm_256, &c,
+    status = srtp_cipher_type_alloc(NULL, &srtp_aes_icm_256, &c,
                                     SRTP_AES_ICM_256_KEY_LEN_WSALT, 0);
     if (status) {
         fprintf(stderr, "error: can't allocate cipher\n");
@@ -295,7 +295,7 @@ int main(int argc, char *argv[])
 
 #ifdef GCM
     /* run the throughput test on the aes_gcm_128 cipher */
-    status = srtp_cipher_type_alloc(&srtp_aes_gcm_128, &c,
+    status = srtp_cipher_type_alloc(NULL, &srtp_aes_gcm_128, &c,
                                     SRTP_AES_GCM_128_KEY_LEN_WSALT, 8);
     if (status) {
         fprintf(stderr, "error: can't allocate GCM 128 cipher\n");
@@ -313,7 +313,7 @@ int main(int argc, char *argv[])
     CHECK_OK(status);
 
     /* run the throughput test on the aes_gcm_256 cipher */
-    status = srtp_cipher_type_alloc(&srtp_aes_gcm_256, &c,
+    status = srtp_cipher_type_alloc(NULL, &srtp_aes_gcm_256, &c,
                                     SRTP_AES_GCM_256_KEY_LEN_WSALT, 16);
     if (status) {
         fprintf(stderr, "error: can't allocate GCM 256 cipher\n");
@@ -360,7 +360,7 @@ srtp_err_status_t cipher_driver_self_test(srtp_cipher_type_t *ct)
     srtp_err_status_t status;
 
     printf("running cipher self-test for %s...", ct->description);
-    status = srtp_cipher_type_self_test(ct);
+    status = srtp_cipher_type_self_test(NULL, ct);
     CHECK_OK(status);
     printf("passed\n");
 
@@ -419,7 +419,7 @@ srtp_err_status_t cipher_driver_test_api(srtp_cipher_type_t *ct,
         return srtp_err_status_bad_param;
     }
 
-    status = srtp_cipher_type_alloc(ct, &c, key_len, tag_len);
+    status = srtp_cipher_type_alloc(NULL, ct, &c, key_len, tag_len);
     CHECK_OK(status);
 
     status = srtp_cipher_init(c, test_key);
@@ -656,7 +656,7 @@ srtp_err_status_t cipher_driver_test_multi_aes_icm_128(void)
 
     printf("testing cipher multi for %s e[", ct->description);
 
-    CHECK_OK(srtp_cipher_type_alloc(ct, &c, 30, 0));
+    CHECK_OK(srtp_cipher_type_alloc(NULL, ct, &c, 30, 0));
     CHECK_OK(srtp_cipher_init(c, key));
     for (size_t i = 0; i < num_tests; ++i) {
         printf("%zu,", i);
@@ -672,7 +672,7 @@ srtp_err_status_t cipher_driver_test_multi_aes_icm_128(void)
 
     printf("] d[");
 
-    CHECK_OK(srtp_cipher_type_alloc(ct, &c, 30, 0));
+    CHECK_OK(srtp_cipher_type_alloc(NULL, ct, &c, 30, 0));
     CHECK_OK(srtp_cipher_init(c, key));
     for (size_t i = 0; i < num_tests; ++i) {
         printf("%zu,", i);
@@ -861,7 +861,7 @@ srtp_err_status_t cipher_driver_test_multi_aes_gcm_128(void)
 
     printf("testing cipher multi for %s e[", ct->description);
 
-    CHECK_OK(srtp_cipher_type_alloc(ct, &c, 28, 16));
+    CHECK_OK(srtp_cipher_type_alloc(NULL, ct, &c, 28, 16));
     CHECK_OK(srtp_cipher_init(c, key));
     for (size_t i = 0; i < num_tests; ++i) {
         printf("%zu,", i);
@@ -878,7 +878,7 @@ srtp_err_status_t cipher_driver_test_multi_aes_gcm_128(void)
 
     printf("] d[");
 
-    CHECK_OK(srtp_cipher_type_alloc(ct, &c, 28, 16));
+    CHECK_OK(srtp_cipher_type_alloc(NULL, ct, &c, 28, 16));
     CHECK_OK(srtp_cipher_init(c, key));
     for (size_t i = 0; i < num_tests; ++i) {
         printf("%zu,", i);
@@ -1018,7 +1018,7 @@ srtp_err_status_t cipher_array_alloc_init(srtp_cipher_t ***ca,
     /* allocate and initialize an array of ciphers */
     for (size_t i = 0; i < num_ciphers; i++) {
         /* allocate cipher */
-        status = srtp_cipher_type_alloc(ctype, cipher_array, klen, 16);
+        status = srtp_cipher_type_alloc(NULL, ctype, cipher_array, klen, 16);
         if (status) {
             return status;
         }

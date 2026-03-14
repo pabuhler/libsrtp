@@ -53,17 +53,18 @@
 #include "alloc.h"
 #include "cipher_types.h"
 
-static srtp_err_status_t srtp_null_auth_alloc(srtp_auth_t **a,
+static srtp_err_status_t srtp_null_auth_alloc(srtp_runtime_t runtime,
+                                              srtp_auth_t **a,
                                               size_t key_len,
                                               size_t out_len)
 {
     extern const srtp_auth_type_t srtp_null_auth;
     uint8_t *pointer;
 
-    debug_print(srtp_mod_auth, "allocating auth func with key length %zu",
-                key_len);
-    debug_print(srtp_mod_auth, "                          tag length %zu",
-                out_len);
+    debug_print(runtime, srtp_mod_auth,
+                "allocating auth func with key length %zu", key_len);
+    debug_print(runtime, srtp_mod_auth,
+                "                          tag length %zu", out_len);
 
     /* allocate memory for auth and srtp_null_auth_ctx_t structures */
     pointer = (uint8_t *)srtp_crypto_alloc(sizeof(srtp_null_auth_ctx_t) +
@@ -74,12 +75,14 @@ static srtp_err_status_t srtp_null_auth_alloc(srtp_auth_t **a,
 
     /* set pointers */
     *a = (srtp_auth_t *)pointer;
+    (*a)->runtime = runtime;
     (*a)->type = &srtp_null_auth;
     (*a)->state = pointer + sizeof(srtp_auth_t);
     (*a)->out_len = out_len;
     (*a)->prefix_len = out_len;
     (*a)->key_len = key_len;
 
+    ((srtp_null_auth_ctx_t *)(*a)->state)->runtime = runtime;
     return srtp_err_status_ok;
 }
 

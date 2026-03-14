@@ -82,7 +82,8 @@ size_t srtp_auth_get_prefix_length(const srtp_auth_t *a)
 /* should be big enough for most occasions */
 #define SELF_TEST_TAG_BUF_OCTETS 32
 
-srtp_err_status_t srtp_auth_type_test(const srtp_auth_type_t *at,
+srtp_err_status_t srtp_auth_type_test(srtp_runtime_t runtime,
+                                      const srtp_auth_type_t *at,
                                       const srtp_auth_test_case_t *test_data)
 {
     const srtp_auth_test_case_t *test_case = test_data;
@@ -92,7 +93,7 @@ srtp_err_status_t srtp_auth_type_test(const srtp_auth_type_t *at,
     size_t i = 0;
     size_t case_num = 0;
 
-    debug_print(srtp_mod_auth, "running self-test for auth function %s",
+    debug_print(runtime, srtp_mod_auth, "running self-test for auth function %s",
                 at->description);
 
     /*
@@ -111,7 +112,8 @@ srtp_err_status_t srtp_auth_type_test(const srtp_auth_type_t *at,
         }
 
         /* allocate auth */
-        status = srtp_auth_type_alloc(at, &a, test_case->key_length_octets,
+        status = srtp_auth_type_alloc(runtime, at, &a,
+                                      test_case->key_length_octets,
                                       test_case->tag_length_octets);
         if (status) {
             return status;
@@ -139,16 +141,16 @@ srtp_err_status_t srtp_auth_type_test(const srtp_auth_type_t *at,
             return status;
         }
 
-        debug_print(srtp_mod_auth, "key: %s",
+        debug_print(runtime, srtp_mod_auth, "key: %s",
                     srtp_octet_string_hex_string(test_case->key,
                                                  test_case->key_length_octets));
-        debug_print(srtp_mod_auth, "data: %s",
+        debug_print(runtime, srtp_mod_auth, "data: %s",
                     srtp_octet_string_hex_string(
                         test_case->data, test_case->data_length_octets));
-        debug_print(
+        debug_print(runtime, 
             srtp_mod_auth, "tag computed: %s",
             srtp_octet_string_hex_string(tag, test_case->tag_length_octets));
-        debug_print(srtp_mod_auth, "tag expected: %s",
+        debug_print(runtime, srtp_mod_auth, "tag expected: %s",
                     srtp_octet_string_hex_string(test_case->tag,
                                                  test_case->tag_length_octets));
 
@@ -157,8 +159,8 @@ srtp_err_status_t srtp_auth_type_test(const srtp_auth_type_t *at,
         for (i = 0; i < test_case->tag_length_octets; i++) {
             if (tag[i] != test_case->tag[i]) {
                 status = srtp_err_status_algo_fail;
-                debug_print(srtp_mod_auth, "test case %zu failed", case_num);
-                debug_print(srtp_mod_auth, "  (mismatch at octet %zu)", i);
+                debug_print(runtime, srtp_mod_auth, "test case %zu failed", case_num);
+                debug_print(runtime, srtp_mod_auth, "  (mismatch at octet %zu)", i);
             }
         }
         if (status) {
@@ -188,7 +190,8 @@ srtp_err_status_t srtp_auth_type_test(const srtp_auth_type_t *at,
  * list of test data.
  */
 
-srtp_err_status_t srtp_auth_type_self_test(const srtp_auth_type_t *at)
+srtp_err_status_t srtp_auth_type_self_test(srtp_runtime_t runtime,
+                                           const srtp_auth_type_t *at)
 {
-    return srtp_auth_type_test(at, at->test_data);
+    return srtp_auth_type_test(runtime, at, at->test_data);
 }

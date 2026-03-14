@@ -58,17 +58,18 @@ srtp_debug_module_t srtp_mod_hmac = {
     "hmac sha-1" /* printable name for module   */
 };
 
-static srtp_err_status_t srtp_hmac_alloc(srtp_auth_t **a,
+static srtp_err_status_t srtp_hmac_alloc(srtp_runtime_t runtime,
+                                         srtp_auth_t **a,
                                          size_t key_len,
                                          size_t out_len)
 {
     extern const srtp_auth_type_t srtp_hmac;
     uint8_t *pointer;
 
-    debug_print(srtp_mod_hmac, "allocating auth func with key length %zu",
-                key_len);
-    debug_print(srtp_mod_hmac, "                          tag length %zu",
-                out_len);
+    debug_print(runtime, srtp_mod_hmac,
+                "allocating auth func with key length %zu", key_len);
+    debug_print(runtime, srtp_mod_hmac,
+                "                          tag length %zu", out_len);
 
     /*
      * check key length - note that we don't support keys larger
@@ -92,12 +93,14 @@ static srtp_err_status_t srtp_hmac_alloc(srtp_auth_t **a,
 
     /* set pointers */
     *a = (srtp_auth_t *)pointer;
+    (*a)->runtime = runtime;
     (*a)->type = &srtp_hmac;
     (*a)->state = pointer + sizeof(srtp_auth_t);
     (*a)->out_len = out_len;
     (*a)->key_len = key_len;
     (*a)->prefix_len = 0;
 
+    ((srtp_hmac_ctx_t *)(*a)->state)->runtime = runtime;
     return srtp_err_status_ok;
 }
 
@@ -141,11 +144,11 @@ static srtp_err_status_t srtp_hmac_init(void *statev,
         ((uint8_t *)state->opad)[i] = 0x5c;
     }
 
-    debug_print(srtp_mod_hmac, "ipad: %s",
+    debug_print(state->runtime, srtp_mod_hmac, "ipad: %s",
                 srtp_octet_string_hex_string(ipad, 64));
 
     /* initialize sha1 context */
-    srtp_sha1_init(&state->init_ctx);
+    srtp_sha1_init(&state->init_ctx, state->runtime);
 
     /* hash ipad ^ key */
     srtp_sha1_update(&state->init_ctx, ipad, 64);
@@ -169,7 +172,7 @@ static srtp_err_status_t srtp_hmac_update(void *statev,
 {
     srtp_hmac_ctx_t *state = (srtp_hmac_ctx_t *)statev;
 
-    debug_print(srtp_mod_hmac, "input: %s",
+    debug_print(state->runtime, srtp_mod_hmac, "input: %s",
                 srtp_octet_string_hex_string(message, msg_octets));
 
     /* hash message into sha1 context */
@@ -202,11 +205,11 @@ static srtp_err_status_t srtp_hmac_compute(void *statev,
      * note that we don't need to debug_print() the input, since the
      * function hmac_update() already did that for us
      */
-    debug_print(srtp_mod_hmac, "intermediate state: %s",
+    debug_print(state->runtime, srtp_mod_hmac, "intermediate state: %s",
                 srtp_octet_string_hex_string((uint8_t *)H, 20));
 
     /* re-initialize hash context */
-    srtp_sha1_init(&state->ctx);
+    srtp_sha1_init(&state->ctx, state->runtime);
 
     /* hash opad ^ key  */
     srtp_sha1_update(&state->ctx, (uint8_t *)state->opad, 64);
@@ -222,7 +225,7 @@ static srtp_err_status_t srtp_hmac_compute(void *statev,
         result[i] = ((uint8_t *)hash_value)[i];
     }
 
-    debug_print(srtp_mod_hmac, "output: %s",
+    debug_print(state->runtime, srtp_mod_hmac, "output: %s",
                 srtp_octet_string_hex_string((uint8_t *)hash_value, tag_len));
 
     return srtp_err_status_ok;

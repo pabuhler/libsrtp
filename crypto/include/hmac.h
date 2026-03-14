@@ -50,6 +50,7 @@
 #include "sha1.h"
 
 typedef struct {
+    srtp_runtime_t runtime;
     uint8_t opad[64];
     srtp_sha1_ctx_t ctx;
     srtp_sha1_ctx_t init_ctx;

@@ -51,6 +51,7 @@
 #include "cipher.h"
 
 typedef struct {
+    srtp_runtime_t runtime;
     v128_t counter;                       /* holds the counter value          */
     v128_t offset;                        /* initial offset value             */
     v128_t keystream_buffer;              /* buffers bytes of keystream       */

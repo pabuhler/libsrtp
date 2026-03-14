@@ -55,6 +55,7 @@
 #include <openssl/aes.h>
 
 typedef struct {
+    srtp_runtime_t runtime;
     v128_t counter; /* holds the counter value          */
     v128_t offset;  /* initial offset value             */
     size_t key_size;
@@ -67,6 +68,7 @@ typedef struct {
 
 #include <wolfssl/wolfcrypt/aes.h>
 typedef struct {
+    srtp_runtime_t runtime;
     v128_t counter; /* holds the counter value          */
     v128_t offset;  /* initial offset value             */
     uint8_t key[SRTP_AES_256_KEY_LEN];
@@ -85,6 +87,7 @@ typedef struct {
 } psa_aes_icm_ctx_t;
 
 typedef struct {
+    srtp_runtime_t runtime;
     v128_t counter; /* holds the counter value          */
     v128_t offset;  /* initial offset value             */
     size_t nc_off;
@@ -102,6 +105,7 @@ typedef struct {
 #include <pk11pub.h>
 
 typedef struct {
+    srtp_runtime_t runtime;
     v128_t counter;
     v128_t offset;
     size_t key_size;

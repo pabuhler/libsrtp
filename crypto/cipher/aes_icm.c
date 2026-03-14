@@ -93,15 +93,16 @@ srtp_debug_module_t srtp_mod_aes_icm = {
  *
  */
 
-static srtp_err_status_t srtp_aes_icm_alloc(srtp_cipher_t **c,
+static srtp_err_status_t srtp_aes_icm_alloc(srtp_runtime_t runtime,
+                                            srtp_cipher_t **c,
                                             size_t key_len,
                                             size_t tlen)
 {
     srtp_aes_icm_ctx_t *icm;
     (void)tlen;
 
-    debug_print(srtp_mod_aes_icm, "allocating cipher with key length %zu",
-                key_len);
+    debug_print(runtime, srtp_mod_aes_icm,
+                "allocating cipher with key length %zu", key_len);
 
     /*
      * The check for key_len = 30/46 does not apply. Our usage
@@ -128,7 +129,9 @@ static srtp_err_status_t srtp_aes_icm_alloc(srtp_cipher_t **c,
     }
 
     /* set pointers */
+    (*c)->runtime = runtime;
     (*c)->state = icm;
+    icm->runtime = runtime;
 
     switch (key_len) {
     case SRTP_AES_ICM_256_KEY_LEN_WSALT:
@@ -209,9 +212,10 @@ static srtp_err_status_t srtp_aes_icm_context_init(void *cv, const uint8_t *key)
     memcpy(&c->counter, key + base_key_len, copy_len);
     memcpy(&c->offset, key + base_key_len, copy_len);
 
-    debug_print(srtp_mod_aes_icm, "key:  %s",
+    debug_print(c->runtime, srtp_mod_aes_icm, "key:  %s",
                 srtp_octet_string_hex_string(key, base_key_len));
-    debug_print(srtp_mod_aes_icm, "offset: %s", v128_hex_string(&c->offset));
+    debug_print(c->runtime, srtp_mod_aes_icm, "offset: %s",
+                v128_hex_string(&c->offset));
 
     /* expand key */
     status =
@@ -244,11 +248,12 @@ static srtp_err_status_t srtp_aes_icm_set_iv(void *cv,
     /* set nonce (for alignment) */
     v128_copy_octet_string(&nonce, iv);
 
-    debug_print(srtp_mod_aes_icm, "setting iv: %s", v128_hex_string(&nonce));
+    debug_print(c->runtime, srtp_mod_aes_icm, "setting iv: %s",
+                v128_hex_string(&nonce));
 
     v128_xor(&c->counter, &c->offset, &nonce);
 
-    debug_print(srtp_mod_aes_icm, "set_counter: %s",
+    debug_print(c->runtime, srtp_mod_aes_icm, "set_counter: %s",
                 v128_hex_string(&c->counter));
 
     /* indicate that the keystream_buffer is empty */
@@ -270,9 +275,9 @@ static void srtp_aes_icm_advance(srtp_aes_icm_ctx_t *c)
     srtp_aes_encrypt(&c->keystream_buffer, &c->expanded_key);
     c->bytes_in_buffer = sizeof(v128_t);
 
-    debug_print(srtp_mod_aes_icm, "counter:    %s",
+    debug_print(c->runtime, srtp_mod_aes_icm, "counter:    %s",
                 v128_hex_string(&c->counter));
-    debug_print(srtp_mod_aes_icm, "ciphertext: %s",
+    debug_print(c->runtime, srtp_mod_aes_icm, "ciphertext: %s",
                 v128_hex_string(&c->keystream_buffer));
 
     /* clock counter forward */
@@ -320,7 +325,8 @@ static srtp_err_status_t srtp_aes_icm_encrypt(void *cv,
         return srtp_err_status_terminus;
     }
 
-    debug_print(srtp_mod_aes_icm, "block index: %d", htons(c->counter.v16[7]));
+    debug_print(c->runtime, srtp_mod_aes_icm, "block index: %d",
+                htons(c->counter.v16[7]));
     if (bytes_to_encr <= c->bytes_in_buffer) {
         /* deal with odd case of small bytes_to_encr */
         for (size_t i = (sizeof(v128_t) - c->bytes_in_buffer);

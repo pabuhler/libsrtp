@@ -107,15 +107,16 @@ srtp_debug_module_t srtp_mod_aes_icm = {
  * value.  The tlen argument is for the AEAD tag length, which
  * isn't used in counter mode.
  */
-static srtp_err_status_t srtp_aes_icm_openssl_alloc(srtp_cipher_t **c,
+static srtp_err_status_t srtp_aes_icm_openssl_alloc(srtp_runtime_t runtime,
+                                                    srtp_cipher_t **c,
                                                     size_t key_len,
                                                     size_t tlen)
 {
     srtp_aes_icm_ctx_t *icm;
     (void)tlen;
 
-    debug_print(srtp_mod_aes_icm, "allocating cipher with key length %zu",
-                key_len);
+    debug_print(runtime, srtp_mod_aes_icm,
+                "allocating cipher with key length %zu", key_len);
 
     /*
      * Verify the key_len is valid for one of: AES-128/192/256
@@ -148,7 +149,9 @@ static srtp_err_status_t srtp_aes_icm_openssl_alloc(srtp_cipher_t **c,
     }
 
     /* set pointers */
+    (*c)->runtime = runtime;
     (*c)->state = icm;
+    icm->runtime = runtime;
 
     /* setup cipher parameters */
     switch (key_len) {
@@ -231,9 +234,10 @@ static srtp_err_status_t srtp_aes_icm_openssl_context_init(void *cv,
     c->offset.v8[SRTP_SALT_LEN] = c->offset.v8[SRTP_SALT_LEN + 1] = 0;
     c->counter.v8[SRTP_SALT_LEN] = c->counter.v8[SRTP_SALT_LEN + 1] = 0;
 
-    debug_print(srtp_mod_aes_icm, "key:  %s",
+    debug_print(c->runtime, srtp_mod_aes_icm, "key:  %s",
                 srtp_octet_string_hex_string(key, c->key_size));
-    debug_print(srtp_mod_aes_icm, "offset: %s", v128_hex_string(&c->offset));
+    debug_print(c->runtime, srtp_mod_aes_icm, "offset: %s",
+                v128_hex_string(&c->offset));
 
     switch (c->key_size) {
     case SRTP_AES_256_KEY_LEN:
@@ -275,11 +279,12 @@ static srtp_err_status_t srtp_aes_icm_openssl_set_iv(
     /* set nonce (for alignment) */
     v128_copy_octet_string(&nonce, iv);
 
-    debug_print(srtp_mod_aes_icm, "setting iv: %s", v128_hex_string(&nonce));
+    debug_print(c->runtime, srtp_mod_aes_icm, "setting iv: %s",
+                v128_hex_string(&nonce));
 
     v128_xor(&c->counter, &c->offset, &nonce);
 
-    debug_print(srtp_mod_aes_icm, "set_counter: %s",
+    debug_print(c->runtime, srtp_mod_aes_icm, "set_counter: %s",
                 v128_hex_string(&c->counter));
 
     if (!EVP_EncryptInit_ex(c->ctx, NULL, NULL, NULL, c->counter.v8)) {
@@ -306,7 +311,8 @@ static srtp_err_status_t srtp_aes_icm_openssl_encrypt(void *cv,
     srtp_aes_icm_ctx_t *c = (srtp_aes_icm_ctx_t *)cv;
     int len = 0;
 
-    debug_print(srtp_mod_aes_icm, "rs0: %s", v128_hex_string(&c->counter));
+    debug_print(c->runtime, srtp_mod_aes_icm, "rs0: %s",
+                v128_hex_string(&c->counter));
 
     if (dst_len == NULL) {
         return srtp_err_status_bad_param;
