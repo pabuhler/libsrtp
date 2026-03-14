@@ -220,6 +220,7 @@ typedef enum {
 } srtp_err_status_t;
 
 typedef struct srtp_ctx_t_ srtp_ctx_t;
+typedef struct srtp_runtime_ctx_t_ srtp_runtime_ctx_t;
 
 /**
  * @brief srtp_sec_serv_t describes a set of security services.
@@ -370,21 +371,38 @@ typedef struct srtp_policy_t {
  * streams, each of which originates with a different participant.
  */
 typedef srtp_ctx_t *srtp_t;
+typedef srtp_runtime_ctx_t *srtp_runtime_t;
 
 /**
- * @brief srtp_init() initializes the srtp library.
- *
- * @warning This function @b must be called before any other srtp
- * functions.
+ * @brief srtp_err_reporting_level_t defines error reporting levels.
  */
-srtp_err_status_t srtp_init(void);
+typedef enum {
+    srtp_err_level_error,
+    srtp_err_level_warning,
+    srtp_err_level_info,
+    srtp_err_level_debug
+} srtp_err_reporting_level_t;
 
 /**
- * @brief srtp_shutdown() de-initializes the srtp library.
- *
- * @warning No srtp functions may be called after calling this function.
+ * @brief Runtime-scoped error reporting callback.
  */
-srtp_err_status_t srtp_shutdown(void);
+typedef void(srtp_err_report_handler_func_t)(srtp_err_reporting_level_t level,
+                                             const char *msg,
+                                             void *data);
+
+/**
+ * @brief srtp_runtime_alloc() allocates and initializes an SRTP runtime.
+ *
+ * @warning A runtime must be created before sessions can be created from it.
+ */
+srtp_err_status_t srtp_runtime_alloc(srtp_runtime_t *runtime);
+
+/**
+ * @brief srtp_runtime_dealloc() de-initializes and frees an SRTP runtime.
+ *
+ * Sessions created from the runtime must already have been deallocated.
+ */
+srtp_err_status_t srtp_runtime_dealloc(srtp_runtime_t runtime);
 
 /**
  * @brief srtp_protect() is the Secure RTP sender-side packet processing
@@ -491,8 +509,10 @@ srtp_err_status_t srtp_unprotect(srtp_t ctx,
 /**
  * @brief srtp_create() allocates and initializes an SRTP session.
  *
- * The function call srtp_create(session, policy) allocates and
+ * The function call srtp_create(runtime, session, policy) allocates and
  * initializes an SRTP session context, applying the given policy.
+ *
+ * @param runtime is the SRTP runtime that will own the session.
  *
  * @param session is a pointer to the SRTP session to which the policy is
  * to be added.
@@ -509,7 +529,9 @@ srtp_err_status_t srtp_unprotect(srtp_t ctx,
  *    - srtp_err_status_alloc_fail   if allocation failed.
  *    - srtp_err_status_init_fail    if initialization failed.
  */
-srtp_err_status_t srtp_create(srtp_t *session, const srtp_policy_t *policy);
+srtp_err_status_t srtp_create(srtp_runtime_t runtime,
+                              srtp_t *session,
+                              const srtp_policy_t *policy);
 
 /**
  * @brief srtp_stream_add() allocates and initializes an SRTP stream
@@ -1332,24 +1354,29 @@ typedef struct srtp_event_data_t {
  * The typedef srtp_event_handler_func_t is the prototype for the
  * event handler function.  It has as its only argument an
  * srtp_event_data_t which describes the event that needs to be handled.
- * There can only be a single, global handler for all events in
- * libSRTP.
+ * Event handlers are installed per runtime.
  */
 typedef void(srtp_event_handler_func_t)(srtp_event_data_t *data);
 
 /**
- * @brief sets the event handler to the function supplied by the caller.
+ * @brief sets the runtime event handler to the function supplied by the
+ * caller.
  *
- * The function call srtp_install_event_handler(func) sets the event
+ * The function call srtp_runtime_install_event_handler(runtime, func) sets the
+ * event
  * handler function to the value func.  The value NULL is acceptable
  * as an argument; in this case, events will be ignored rather than
  * handled.
+ *
+ * @param runtime is the SRTP runtime that owns the handler configuration.
  *
  * @param func is a pointer to a function that takes an srtp_event_data_t
  *             pointer as an argument and returns void.  This function
  *             will be used by libSRTP to handle events.
  */
-srtp_err_status_t srtp_install_event_handler(srtp_event_handler_func_t func);
+srtp_err_status_t srtp_runtime_install_event_handler(srtp_runtime_t runtime,
+                                                     srtp_event_handler_func_t
+                                                         func);
 
 /**
  * @brief Returns the version string of the library.
@@ -1364,20 +1391,23 @@ const char *srtp_get_version_string(void);
 unsigned int srtp_get_version(void);
 
 /**
- * @brief srtp_set_debug_module(mod_name, v)
+ * @brief srtp_runtime_set_debug_module(runtime, mod_name, v)
  *
  * sets dynamic debugging to the value v (false for off, true for on) for the
- * debug module with the name mod_name
+ * debug module with the name mod_name on the given runtime.
  *
  * returns err_status_ok on success, err_status_fail otherwise
  */
-srtp_err_status_t srtp_set_debug_module(const char *mod_name, bool v);
+srtp_err_status_t srtp_runtime_set_debug_module(srtp_runtime_t runtime,
+                                                const char *mod_name,
+                                                bool v);
 
 /**
- * @brief srtp_list_debug_modules() outputs a list of debugging modules
+ * @brief srtp_runtime_list_debug_modules() outputs a list of debugging
+ * modules
  *
  */
-srtp_err_status_t srtp_list_debug_modules(void);
+srtp_err_status_t srtp_runtime_list_debug_modules(srtp_runtime_t runtime);
 
 /**
  * @brief srtp_log_level_t defines log levels.
@@ -1400,29 +1430,40 @@ typedef enum {
  * The typedef srtp_event_handler_func_t is the prototype for the
  * event handler function.  It has as srtp_log_level_t, log
  * message and data as arguments.
- * There can only be a single, global handler for all log messages in
- * libSRTP.
+ * Log handlers are installed per runtime.
  */
 typedef void(srtp_log_handler_func_t)(srtp_log_level_t level,
                                       const char *msg,
                                       void *data);
 
 /**
- * @brief sets the log handler to the function supplied by the caller.
+ * @brief sets the runtime log handler to the function supplied by the caller.
  *
- * The function call srtp_install_log_handler(func) sets the log
+ * The function call srtp_runtime_install_log_handler(runtime, func) sets the
+ * log
  * handler function to the value func.  The value NULL is acceptable
  * as an argument; in this case, log messages will be ignored.
- * This function can be called before srtp_init() in order to capture
- * any logging during start up.
+ *
+ * @param runtime is the SRTP runtime that owns the handler configuration.
  *
  * @param func is a pointer to a function of type srtp_log_handler_func_t.
  *             This function will be used by libSRTP to output log messages.
  * @param data is a user pointer that will be returned as the data argument in
  * func.
  */
-srtp_err_status_t srtp_install_log_handler(srtp_log_handler_func_t func,
-                                           void *data);
+srtp_err_status_t srtp_runtime_install_log_handler(srtp_runtime_t runtime,
+                                                   srtp_log_handler_func_t
+                                                       func,
+                                                   void *data);
+
+/**
+ * @brief sets the runtime error-report handler to the function supplied by the
+ * caller.
+ */
+srtp_err_status_t srtp_runtime_install_err_report_handler(
+    srtp_runtime_t runtime,
+    srtp_err_report_handler_func_t func,
+    void *data);
 
 /**
  * @brief srtp_get_protect_trailer_length(session, use_mki, mki_index, length)

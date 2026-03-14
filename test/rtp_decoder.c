@@ -68,6 +68,19 @@
 #include "rtp_decoder.h"
 #include "util.h"
 
+static srtp_runtime_t decoder_runtime = NULL;
+
+#define srtp_init() srtp_runtime_alloc(&decoder_runtime)
+#define srtp_shutdown() srtp_runtime_dealloc(decoder_runtime)
+#define srtp_create(session, policy)                                           \
+    srtp_create(decoder_runtime, session, policy)
+#define srtp_set_debug_module(mod_name, v)                                     \
+    srtp_runtime_set_debug_module(decoder_runtime, mod_name, v)
+#define srtp_list_debug_modules()                                              \
+    srtp_runtime_list_debug_modules(decoder_runtime)
+#define srtp_install_log_handler(func, data)                                   \
+    srtp_runtime_install_log_handler(decoder_runtime, func, data)
+
 #include <assert.h> /* for assert()  */
 #include <stdlib.h>
 

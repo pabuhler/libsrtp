@@ -69,6 +69,15 @@ typedef struct srtp_stream_ctx_t_ srtp_stream_ctx_t;
 typedef srtp_stream_ctx_t *srtp_stream_t;
 typedef struct srtp_stream_list_ctx_t_ *srtp_stream_list_t;
 
+typedef struct srtp_runtime_ctx_t_ {
+    srtp_crypto_kernel_t crypto_kernel;
+    srtp_event_handler_func_t *event_handler;
+    srtp_log_handler_func_t *log_handler;
+    void *log_handler_data;
+    srtp_err_report_handler_func_t *err_report_handler;
+    void *err_report_handler_data;
+} srtp_runtime_ctx_t_;
+
 /*
  * the following declarations are libSRTP internal functions
  */
@@ -134,6 +143,7 @@ typedef struct srtp_stream_ctx_t_ {
  * an srtp_ctx_t holds a stream list and a service description
  */
 typedef struct srtp_ctx_t_ {
+    srtp_runtime_t runtime;                  /* owning runtime            */
     srtp_stream_list_t stream_list;             /* linked list of streams     */
     struct srtp_stream_ctx_t_ *stream_template; /* act as template for other  */
                                                 /* streams                    */
@@ -241,12 +251,12 @@ typedef struct {
  */
 
 #define srtp_handle_event(srtp, strm, evnt)                                    \
-    if (srtp_event_handler) {                                                  \
+    if ((srtp)->runtime != NULL && (srtp)->runtime->event_handler != NULL) {   \
         srtp_event_data_t data;                                                \
         data.session = srtp;                                                   \
         data.ssrc = ntohl(strm->ssrc);                                         \
         data.event = evnt;                                                     \
-        srtp_event_handler(&data);                                             \
+        (srtp)->runtime->event_handler(&data);                                 \
     }
 
 #ifdef __cplusplus

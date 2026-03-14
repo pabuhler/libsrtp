@@ -48,61 +48,106 @@
 
 #include "err.h"
 #include "datatypes.h"
+#include "srtp_priv.h"
+
 #include <string.h>
 
-/* srtp_err_file is the FILE to which errors are reported */
-
-static FILE *srtp_err_file = NULL;
-
-srtp_err_status_t srtp_err_reporting_init(void)
+static void srtp_err_report_to_default_sink(const char *format, va_list args)
 {
 #ifdef ERR_REPORTING_STDOUT
-    srtp_err_file = stdout;
+    vfprintf(stdout, format, args);
 #elif defined(ERR_REPORTING_FILE)
-    /* open file for error reporting */
-    srtp_err_file = fopen(ERR_REPORTING_FILE, "w");
-    if (srtp_err_file == NULL) {
-        return srtp_err_status_init_fail;
+    FILE *err_file = fopen(ERR_REPORTING_FILE, "a");
+    if (err_file != NULL) {
+        vfprintf(err_file, format, args);
+        fclose(err_file);
     }
+#else
+    (void)format;
+    (void)args;
 #endif
+}
 
+srtp_err_status_t srtp_err_reporting_init(srtp_runtime_t runtime)
+{
+    (void)runtime;
     return srtp_err_status_ok;
 }
 
-static srtp_err_report_handler_func_t *srtp_err_report_handler = NULL;
-
-srtp_err_status_t srtp_install_err_report_handler(
-    srtp_err_report_handler_func_t func)
+srtp_err_status_t srtp_runtime_install_err_report_handler(
+    srtp_runtime_t runtime,
+    srtp_err_report_handler_func_t func,
+    void *data)
 {
-    srtp_err_report_handler = func;
+    if (runtime == NULL) {
+        return srtp_err_status_bad_param;
+    }
+
+    runtime->err_report_handler = func;
+    runtime->err_report_handler_data = data;
     return srtp_err_status_ok;
 }
 
 void srtp_err_report(srtp_err_reporting_level_t level, const char *format, ...)
 {
+    va_list args;
+
+    (void)level;
+    va_start(args, format);
+    srtp_err_report_to_default_sink(format, args);
+    va_end(args);
+}
+
+void srtp_runtime_err_report(srtp_runtime_t runtime,
+                             srtp_err_reporting_level_t level,
+                             const char *format,
+                             ...)
+{
     char msg[512];
     va_list args;
-    if (srtp_err_file != NULL) {
-        va_start(args, format);
-        vfprintf(srtp_err_file, format, args);
-        va_end(args);
-    }
-    if (srtp_err_report_handler != NULL) {
-        va_start(args, format);
+    va_list sink_args;
+
+    va_start(args, format);
+    va_copy(sink_args, args);
+    srtp_err_report_to_default_sink(format, sink_args);
+    va_end(sink_args);
+
+    if (runtime != NULL) {
         if (vsnprintf(msg, sizeof(msg), format, args) > 0) {
-            /* strip trailing \n, callback should not have one */
             size_t l = strlen(msg);
             if (l && msg[l - 1] == '\n') {
                 msg[l - 1] = '\0';
             }
-            srtp_err_report_handler(level, msg);
-            /*
-             * NOTE, need to be carefull, there is a potential that
-             * octet_string_set_to_zero() could
-             * call srtp_err_report() in the future, leading to recursion
-             */
+
+            if (runtime->err_report_handler != NULL) {
+                runtime->err_report_handler(level, msg,
+                                            runtime->err_report_handler_data);
+            }
+
+            if (runtime->log_handler != NULL) {
+                srtp_log_level_t log_level = srtp_log_level_error;
+
+                switch (level) {
+                case srtp_err_level_error:
+                    log_level = srtp_log_level_error;
+                    break;
+                case srtp_err_level_warning:
+                    log_level = srtp_log_level_warning;
+                    break;
+                case srtp_err_level_info:
+                    log_level = srtp_log_level_info;
+                    break;
+                case srtp_err_level_debug:
+                    log_level = srtp_log_level_debug;
+                    break;
+                }
+
+                runtime->log_handler(log_level, msg, runtime->log_handler_data);
+            }
+
             octet_string_set_to_zero(msg, sizeof(msg));
         }
-        va_end(args);
     }
+
+    va_end(args);
 }

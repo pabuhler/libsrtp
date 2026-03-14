@@ -94,6 +94,14 @@
 #define ADDR_IS_MULTICAST(a) IN_MULTICAST(htonl(a))
 #define MAX_KEY_LEN 96
 
+static srtp_runtime_t rtpw_runtime = NULL;
+
+#define srtp_init() srtp_runtime_alloc(&rtpw_runtime)
+#define srtp_shutdown() srtp_runtime_dealloc(rtpw_runtime)
+#define srtp_set_debug_module(mod_name, v)                                     \
+    srtp_runtime_set_debug_module(rtpw_runtime, mod_name, v)
+#define srtp_list_debug_modules() srtp_runtime_list_debug_modules(rtpw_runtime)
+
 #ifndef HAVE_USLEEP
 #ifdef HAVE_WINDOWS_H
 #define usleep(us) Sleep(((DWORD)us) / 1000)
@@ -546,7 +554,7 @@ int main(int argc, char *argv[])
             exit(1);
         }
         rtp_sender_init(snd, sock, name, ssrc);
-        status = rtp_sender_init_srtp(snd, &policy);
+        status = rtp_sender_init_srtp(rtpw_runtime, snd, &policy);
         if (status) {
             fprintf(stderr, "error: srtp_create() failed with code %d\n",
                     status);
@@ -599,7 +607,7 @@ int main(int argc, char *argv[])
             exit(1);
         }
         rtp_receiver_init(rcvr, sock, name, ssrc);
-        status = rtp_receiver_init_srtp(rcvr, &policy);
+        status = rtp_receiver_init_srtp(rtpw_runtime, rcvr, &policy);
         if (status) {
             fprintf(stderr, "error: srtp_create() failed with code %d\n",
                     status);

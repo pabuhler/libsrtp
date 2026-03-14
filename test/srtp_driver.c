@@ -60,6 +60,19 @@
 
 #define PRINT_REFERENCE_PACKET 1
 
+static srtp_runtime_t test_runtime = NULL;
+
+#define srtp_init() srtp_runtime_alloc(&test_runtime)
+#define srtp_shutdown() srtp_runtime_dealloc(test_runtime)
+#define srtp_create(session, policy) srtp_create(test_runtime, session, policy)
+#define srtp_set_debug_module(mod_name, v)                                     \
+    srtp_runtime_set_debug_module(test_runtime, mod_name, v)
+#define srtp_list_debug_modules() srtp_runtime_list_debug_modules(test_runtime)
+#define srtp_install_log_handler(func, data)                                   \
+    srtp_runtime_install_log_handler(test_runtime, func, data)
+#define srtp_crypto_kernel_load_debug_module(mod)                              \
+    srtp_crypto_kernel_load_debug_module(test_runtime, mod)
+
 srtp_err_status_t srtp_validate(void);
 
 srtp_err_status_t srtp_validate_mki(void);

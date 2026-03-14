@@ -80,26 +80,17 @@ extern "C" {
  * @}
  */
 
-typedef enum {
-    srtp_err_level_error,
-    srtp_err_level_warning,
-    srtp_err_level_info,
-    srtp_err_level_debug
-} srtp_err_reporting_level_t;
+srtp_err_status_t srtp_err_reporting_init(srtp_runtime_t runtime);
 
-/*
- * err_reporting_init prepares the error system.  If
- * ERR_REPORTING_STDOUT is defined, it will log to stdout.
- *
- */
+srtp_err_status_t srtp_runtime_install_err_report_handler(
+    srtp_runtime_t runtime,
+    srtp_err_report_handler_func_t func,
+    void *data);
 
-srtp_err_status_t srtp_err_reporting_init(void);
-
-typedef void(srtp_err_report_handler_func_t)(srtp_err_reporting_level_t level,
-                                             const char *msg);
-
-srtp_err_status_t srtp_install_err_report_handler(
-    srtp_err_report_handler_func_t func);
+void srtp_runtime_err_report(srtp_runtime_t runtime,
+                             srtp_err_reporting_level_t level,
+                             const char *format,
+                             ...) LIBSRTP_FORMAT_PRINTF(3, 4);
 
 /*
  * srtp_err_report reports a 'printf' formatted error
@@ -123,43 +114,90 @@ typedef struct {
     const char *name; /* printable name for debug module      */
 } srtp_debug_module_t;
 
+#define SRTP_DEBUG_PRINT0_SELECT(_1, _2, _3, NAME, ...) NAME
+#define SRTP_DEBUG_PRINT1_SELECT(_1, _2, _3, _4, NAME, ...) NAME
+#define SRTP_DEBUG_PRINT2_SELECT(_1, _2, _3, _4, _5, NAME, ...) NAME
+
 #ifdef ENABLE_DEBUG_LOGGING
 
 #ifndef debug_print0
-#define debug_print0(mod, format)                                              \
-    srtp_err_report(srtp_err_level_debug, ("%s: " format "\n"), mod.name)
+#define debug_print0_with_runtime(runtime, mod, format)                        \
+    srtp_runtime_err_report((runtime), srtp_err_level_debug,                   \
+                            ("%s: " format "\n"), (mod).name)
+#define debug_print0_without_runtime(mod, format)                              \
+    srtp_runtime_err_report(NULL, srtp_err_level_debug,                        \
+                            ("%s: " format "\n"), (mod).name)
+#define debug_print0(...)                                                      \
+    SRTP_DEBUG_PRINT0_SELECT(__VA_ARGS__, debug_print0_with_runtime,           \
+                             debug_print0_without_runtime)(__VA_ARGS__)
 #endif
 
 #ifndef debug_print
-#define debug_print(mod, format, arg)                                          \
-    srtp_err_report(srtp_err_level_debug, ("%s: " format "\n"), mod.name, arg)
+#define debug_print_with_runtime(runtime, mod, format, arg)                    \
+    srtp_runtime_err_report((runtime), srtp_err_level_debug,                   \
+                            ("%s: " format "\n"), (mod).name, (arg))
+#define debug_print_without_runtime(mod, format, arg)                          \
+    srtp_runtime_err_report(NULL, srtp_err_level_debug,                        \
+                            ("%s: " format "\n"), (mod).name, (arg))
+#define debug_print(...)                                                       \
+    SRTP_DEBUG_PRINT1_SELECT(__VA_ARGS__, debug_print_with_runtime,            \
+                             debug_print_without_runtime)(__VA_ARGS__)
 #endif
 
 #ifndef debug_print2
-#define debug_print2(mod, format, arg1, arg2)                                  \
-    srtp_err_report(srtp_err_level_debug, ("%s: " format "\n"), mod.name,      \
-                    arg1, arg2)
+#define debug_print2_with_runtime(runtime, mod, format, arg1, arg2)            \
+    srtp_runtime_err_report((runtime), srtp_err_level_debug,                   \
+                            ("%s: " format "\n"), (mod).name, (arg1), (arg2))
+#define debug_print2_without_runtime(mod, format, arg1, arg2)                  \
+    srtp_runtime_err_report(NULL, srtp_err_level_debug,                        \
+                            ("%s: " format "\n"), (mod).name, (arg1), (arg2))
+#define debug_print2(...)                                                      \
+    SRTP_DEBUG_PRINT2_SELECT(__VA_ARGS__, debug_print2_with_runtime,           \
+                             debug_print2_without_runtime)(__VA_ARGS__)
 #endif
 
 #else
 
 #ifndef debug_print0
-#define debug_print0(mod, format)                                              \
-    if (mod.on)                                                                \
-    srtp_err_report(srtp_err_level_debug, ("%s: " format "\n"), mod.name)
+#define debug_print0_with_runtime(runtime, mod, format)                        \
+    if ((mod).on)                                                              \
+    srtp_runtime_err_report((runtime), srtp_err_level_debug,                   \
+                            ("%s: " format "\n"), (mod).name)
+#define debug_print0_without_runtime(mod, format)                              \
+    if ((mod).on)                                                              \
+    srtp_runtime_err_report(NULL, srtp_err_level_debug,                        \
+                            ("%s: " format "\n"), (mod).name)
+#define debug_print0(...)                                                      \
+    SRTP_DEBUG_PRINT0_SELECT(__VA_ARGS__, debug_print0_with_runtime,           \
+                             debug_print0_without_runtime)(__VA_ARGS__)
 #endif
 
 #ifndef debug_print
-#define debug_print(mod, format, arg)                                          \
-    if (mod.on)                                                                \
-    srtp_err_report(srtp_err_level_debug, ("%s: " format "\n"), mod.name, arg)
+#define debug_print_with_runtime(runtime, mod, format, arg)                    \
+    if ((mod).on)                                                              \
+    srtp_runtime_err_report((runtime), srtp_err_level_debug,                   \
+                            ("%s: " format "\n"), (mod).name, (arg))
+#define debug_print_without_runtime(mod, format, arg)                          \
+    if ((mod).on)                                                              \
+    srtp_runtime_err_report(NULL, srtp_err_level_debug,                        \
+                            ("%s: " format "\n"), (mod).name, (arg))
+#define debug_print(...)                                                       \
+    SRTP_DEBUG_PRINT1_SELECT(__VA_ARGS__, debug_print_with_runtime,            \
+                             debug_print_without_runtime)(__VA_ARGS__)
 #endif
 
 #ifndef debug_print2
-#define debug_print2(mod, format, arg1, arg2)                                  \
-    if (mod.on)                                                                \
-    srtp_err_report(srtp_err_level_debug, ("%s: " format "\n"), mod.name,      \
-                    arg1, arg2)
+#define debug_print2_with_runtime(runtime, mod, format, arg1, arg2)            \
+    if ((mod).on)                                                              \
+    srtp_runtime_err_report((runtime), srtp_err_level_debug,                   \
+                            ("%s: " format "\n"), (mod).name, (arg1), (arg2))
+#define debug_print2_without_runtime(mod, format, arg1, arg2)                  \
+    if ((mod).on)                                                              \
+    srtp_runtime_err_report(NULL, srtp_err_level_debug,                        \
+                            ("%s: " format "\n"), (mod).name, (arg1), (arg2))
+#define debug_print2(...)                                                      \
+    SRTP_DEBUG_PRINT2_SELECT(__VA_ARGS__, debug_print2_with_runtime,           \
+                             debug_print2_without_runtime)(__VA_ARGS__)
 #endif
 
 #endif

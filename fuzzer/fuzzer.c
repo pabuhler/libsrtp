@@ -13,6 +13,7 @@
 #include "testmem.h"
 
 /* Global variables */
+static srtp_runtime_t g_runtime = NULL;
 static bool g_no_align = false; /* Can be enabled with --no_align */
 static bool g_post_init =
     false; /* Set to true once past initialization phase */
@@ -687,7 +688,7 @@ int LLVMFuzzerInitialize(int *argc, char ***argv)
     int i;
     bool no_custom_event_handler = false;
 
-    if (srtp_init() != srtp_err_status_ok) {
+    if (srtp_runtime_alloc(&g_runtime) != srtp_err_status_ok) {
         /* Shouldn't happen */
         abort();
     }
@@ -708,7 +709,8 @@ int LLVMFuzzerInitialize(int *argc, char ***argv)
     }
 
     if (no_custom_event_handler == false) {
-        if (srtp_install_event_handler(fuzz_srtp_event_handler) !=
+        if (srtp_runtime_install_event_handler(g_runtime,
+                                               fuzz_srtp_event_handler) !=
             srtp_err_status_ok) {
             /* Shouldn't happen */
             abort();
@@ -761,7 +763,8 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
     }
 
     /* Create context */
-    if (srtp_create(&srtp_ctx, policy_chain) != srtp_err_status_ok) {
+    if (srtp_create(g_runtime, &srtp_ctx, policy_chain) !=
+        srtp_err_status_ok) {
         goto end;
     }
 

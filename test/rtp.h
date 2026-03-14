@@ -114,12 +114,14 @@ srtp_err_status_t rtp_sender_init(rtp_sender_t sender,
                                   struct sockaddr_in addr,
                                   uint32_t ssrc);
 
-srtp_err_status_t rtp_sender_init_srtp(rtp_sender_t sender,
+srtp_err_status_t rtp_sender_init_srtp(srtp_runtime_t runtime,
+                                       rtp_sender_t sender,
                                        const srtp_policy_t *policy);
 
 srtp_err_status_t rtp_sender_deinit_srtp(rtp_sender_t sender);
 
-srtp_err_status_t rtp_receiver_init_srtp(rtp_receiver_t sender,
+srtp_err_status_t rtp_receiver_init_srtp(srtp_runtime_t runtime,
+                                         rtp_receiver_t sender,
                                          const srtp_policy_t *policy);
 
 srtp_err_status_t rtp_receiver_deinit_srtp(rtp_receiver_t sender);

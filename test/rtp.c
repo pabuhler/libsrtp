@@ -194,10 +194,11 @@ srtp_err_status_t rtp_receiver_init(rtp_receiver_t rcvr,
     return srtp_err_status_ok;
 }
 
-srtp_err_status_t rtp_sender_init_srtp(rtp_sender_t sender,
+srtp_err_status_t rtp_sender_init_srtp(srtp_runtime_t runtime,
+                                       rtp_sender_t sender,
                                        const srtp_policy_t *policy)
 {
-    return srtp_create(&sender->srtp_ctx, policy);
+    return srtp_create(runtime, &sender->srtp_ctx, policy);
 }
 
 srtp_err_status_t rtp_sender_deinit_srtp(rtp_sender_t sender)
@@ -205,10 +206,11 @@ srtp_err_status_t rtp_sender_deinit_srtp(rtp_sender_t sender)
     return srtp_dealloc(sender->srtp_ctx);
 }
 
-srtp_err_status_t rtp_receiver_init_srtp(rtp_receiver_t sender,
+srtp_err_status_t rtp_receiver_init_srtp(srtp_runtime_t runtime,
+                                         rtp_receiver_t sender,
                                          const srtp_policy_t *policy)
 {
-    return srtp_create(&sender->srtp_ctx, policy);
+    return srtp_create(runtime, &sender->srtp_ctx, policy);
 }
 
 srtp_err_status_t rtp_receiver_deinit_srtp(rtp_receiver_t sender)
