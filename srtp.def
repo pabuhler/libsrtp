@@ -20,6 +20,7 @@ srtp_policy_set_sec_serv
 srtp_policy_use_mki
 srtp_policy_get_mki_length
 srtp_policy_add_key
+srtp_policy_set_key_lifetime
 srtp_policy_remove_keys
 srtp_policy_set_window_size
 srtp_policy_set_allow_repeat_tx

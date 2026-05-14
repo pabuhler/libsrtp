@@ -478,15 +478,12 @@ static srtp_err_status_t srtp_stream_dealloc(
                 session_keys->mki_id = NULL;
             }
 
-            /*
-             * deallocate key usage limit, if it is not the same as that in
-             * template
-             */
             if (template_session_keys &&
-                session_keys->limit == template_session_keys->limit) {
+                session_keys->limit_group ==
+                    template_session_keys->limit_group) {
                 /* do nothing */
-            } else if (session_keys->limit) {
-                srtp_crypto_free(session_keys->limit);
+            } else if (session_keys->limit_group) {
+                srtp_crypto_free(session_keys->limit_group);
             }
         }
         srtp_crypto_free(stream->session_keys);
@@ -560,8 +557,8 @@ static srtp_err_status_t srtp_stream_alloc(srtp_stream_ctx_t **str_ptr,
     srtp_session_keys_t *session_keys = NULL;
 
     /*
-     * This function allocates the stream context, rtp and rtcp ciphers
-     * and auth functions, and key limit structure.  If there is a
+     * This function allocates the stream context, rtp and rtcp ciphers,
+     * auth functions, and key limit group.  If there is a
      * failure during allocation, we free all previously allocated
      * memory and return a failure code.  The code could probably
      * be improved, but it works and should be clear.
@@ -642,10 +639,10 @@ static srtp_err_status_t srtp_stream_alloc(srtp_stream_ctx_t **str_ptr,
 
         session_keys->mki_id = NULL;
 
-        /* allocate key limit structure */
-        session_keys->limit = (srtp_key_limit_ctx_t *)srtp_crypto_alloc(
-            sizeof(srtp_key_limit_ctx_t));
-        if (session_keys->limit == NULL) {
+        session_keys->limit_group =
+            (srtp_key_limit_group_ctx_t *)srtp_crypto_alloc(
+                sizeof(srtp_key_limit_group_ctx_t));
+        if (session_keys->limit_group == NULL) {
             srtp_stream_dealloc(str, NULL);
             return srtp_err_status_alloc_fail;
         }
@@ -715,8 +712,8 @@ static srtp_err_status_t srtp_stream_alloc(srtp_stream_ctx_t **str_ptr,
  * srtp_stream_clone(stream_template, new) allocates a new stream and
  * initializes it using the cipher and auth of the stream_template
  *
- * the only unique data in a cloned stream is the replay database and
- * the SSRC
+ * the unique data in a cloned stream is the replay database, SSRC, and
+ * key usage counters
  */
 
 static srtp_err_status_t srtp_stream_clone(
@@ -780,14 +777,9 @@ static srtp_err_status_t srtp_stream_clone(
         memcpy(session_keys->c_salt, template_session_keys->c_salt,
                SRTP_AEAD_SALT_LEN);
 
-        /* set key limit to point to that of the template */
-        status = srtp_key_limit_clone(template_session_keys->limit,
-                                      &session_keys->limit);
-        if (status) {
-            srtp_stream_dealloc(*str_ptr, stream_template);
-            *str_ptr = NULL;
-            return status;
-        }
+        session_keys->rtp_limit = template_session_keys->rtp_limit;
+        session_keys->rtcp_limit = template_session_keys->rtcp_limit;
+        session_keys->limit_group = template_session_keys->limit_group;
     }
 
     str->use_mki = stream_template->use_mki;
@@ -1207,8 +1199,26 @@ srtp_err_status_t srtp_stream_init_keys(srtp_session_keys_t *session_keys,
      * be part of srtp_policy_t.
      */
 
-    /* initialize key limit to maximum value */
-    srtp_key_limit_set(session_keys->limit, 0xffffffffffffLL);
+    const uint64_t rtp_lifetime = master_key->rtp_lifetime == 0
+                                      ? srtp_default_rtp_key_lifetime()
+                                      : master_key->rtp_lifetime;
+    const uint64_t rtcp_lifetime = master_key->rtcp_lifetime == 0
+                                       ? srtp_default_rtcp_key_lifetime()
+                                       : master_key->rtcp_lifetime;
+
+    /* initialize key limits */
+    stat = srtp_key_limit_set(&session_keys->rtp_limit, rtp_lifetime);
+    if (stat) {
+        return stat;
+    }
+    stat = srtp_key_limit_set(&session_keys->rtcp_limit, rtcp_lifetime);
+    if (stat) {
+        return stat;
+    }
+    stat = srtp_key_limit_group_reset(session_keys->limit_group);
+    if (stat) {
+        return stat;
+    }
 
     if (mki_size != 0) {
         if (master_key->mki_id_len == 0 || master_key->mki_id_len != mki_size) {
@@ -1588,7 +1598,20 @@ srtp_err_status_t srtp_stream_init_all_master_keys(srtp_stream_ctx_t *srtp,
         }
 
         session_keys = &srtp->session_keys[0];
-        srtp_key_limit_set(session_keys->limit, 0xffffffffffffLL);
+        status = srtp_key_limit_set(&session_keys->rtp_limit,
+                                    srtp_default_rtp_key_lifetime());
+        if (status) {
+            return status;
+        }
+        status = srtp_key_limit_set(&session_keys->rtcp_limit,
+                                    srtp_default_rtcp_key_lifetime());
+        if (status) {
+            return status;
+        }
+        status = srtp_key_limit_group_reset(session_keys->limit_group);
+        if (status) {
+            return status;
+        }
 
         status = srtp_cipher_init(session_keys->rtp_cipher, NULL);
         if (status) {
@@ -1674,8 +1697,6 @@ static srtp_err_status_t srtp_stream_init(srtp_stream_ctx_t *srtp,
     /* initialize allow_repeat_tx */
     srtp->allow_repeat_tx = p->allow_repeat_tx;
 
-    /* DAM - no RTCP key limit at present */
-
     /* initialize keys */
     err = srtp_stream_init_all_master_keys(srtp, p);
     if (err) {
@@ -1740,6 +1761,37 @@ srtp_err_status_t srtp_install_event_handler(srtp_event_handler_func_t func)
 
     /* set global event handling function */
     srtp_event_handler = func;
+    return srtp_err_status_ok;
+}
+
+static srtp_err_status_t srtp_update_key_limits(srtp_ctx_t *ctx,
+                                                srtp_stream_ctx_t *stream,
+                                                srtp_key_limit_t current_limit,
+                                                srtp_key_limit_group_t group)
+{
+    if (srtp_key_limit_group_is_expired(group)) {
+        srtp_handle_event(ctx, stream, event_key_hard_limit);
+        return srtp_err_status_key_expired;
+    }
+
+    switch (srtp_key_limit_update(current_limit)) {
+    case srtp_key_event_normal:
+        break;
+    case srtp_key_event_soft_limit:
+        srtp_handle_event(ctx, stream, event_key_soft_limit);
+        break;
+    case srtp_key_event_hard_limit:
+        srtp_key_limit_group_expire(group);
+        srtp_handle_event(ctx, stream, event_key_hard_limit);
+        return srtp_err_status_key_expired;
+    default:
+        break;
+    }
+
+    if (srtp_key_limit_is_expired(current_limit)) {
+        srtp_key_limit_group_expire(group);
+    }
+
     return srtp_err_status_ok;
 }
 
@@ -2088,21 +2140,10 @@ static srtp_err_status_t srtp_protect_aead(srtp_ctx_t *ctx,
 
     debug_print0(mod_srtp, "function srtp_protect_aead");
 
-    /*
-     * update the key usage limit, and check it to make sure that we
-     * didn't just hit either the soft limit or the hard limit, and call
-     * the event handler if we hit either.
-     */
-    switch (srtp_key_limit_update(session_keys->limit)) {
-    case srtp_key_event_normal:
-        break;
-    case srtp_key_event_hard_limit:
-        srtp_handle_event(ctx, stream, event_key_hard_limit);
-        return srtp_err_status_key_expired;
-    case srtp_key_event_soft_limit:
-    default:
-        srtp_handle_event(ctx, stream, event_key_soft_limit);
-        break;
+    status = srtp_update_key_limits(ctx, stream, &session_keys->rtp_limit,
+                                    session_keys->limit_group);
+    if (status) {
+        return status;
     }
 
     /* get tag length from stream */
@@ -2346,22 +2387,10 @@ static srtp_err_status_t srtp_unprotect_aead(srtp_ctx_t *ctx,
         memcpy(rtp, srtp, enc_start);
     }
 
-    /*
-     * update the key usage limit, and check it to make sure that we
-     * didn't just hit either the soft limit or the hard limit, and call
-     * the event handler if we hit either.
-     */
-    switch (srtp_key_limit_update(session_keys->limit)) {
-    case srtp_key_event_normal:
-        break;
-    case srtp_key_event_soft_limit:
-        srtp_handle_event(ctx, stream, event_key_soft_limit);
-        break;
-    case srtp_key_event_hard_limit:
-        srtp_handle_event(ctx, stream, event_key_hard_limit);
-        return srtp_err_status_key_expired;
-    default:
-        break;
+    status = srtp_update_key_limits(ctx, stream, &session_keys->rtp_limit,
+                                    session_keys->limit_group);
+    if (status) {
+        return status;
     }
 
     if (cryptex_inuse) {
@@ -2574,22 +2603,10 @@ srtp_err_status_t srtp_protect(srtp_t ctx,
                                  session_keys);
     }
 
-    /*
-     * update the key usage limit, and check it to make sure that we
-     * didn't just hit either the soft limit or the hard limit, and call
-     * the event handler if we hit either.
-     */
-    switch (srtp_key_limit_update(session_keys->limit)) {
-    case srtp_key_event_normal:
-        break;
-    case srtp_key_event_soft_limit:
-        srtp_handle_event(ctx, stream, event_key_soft_limit);
-        break;
-    case srtp_key_event_hard_limit:
-        srtp_handle_event(ctx, stream, event_key_hard_limit);
-        return srtp_err_status_key_expired;
-    default:
-        break;
+    status = srtp_update_key_limits(ctx, stream, &session_keys->rtp_limit,
+                                    session_keys->limit_group);
+    if (status) {
+        return status;
     }
 
     /* get tag length from stream */
@@ -3037,22 +3054,10 @@ srtp_err_status_t srtp_unprotect(srtp_t ctx,
         }
     }
 
-    /*
-     * update the key usage limit, and check it to make sure that we
-     * didn't just hit either the soft limit or the hard limit, and call
-     * the event handler if we hit either.
-     */
-    switch (srtp_key_limit_update(session_keys->limit)) {
-    case srtp_key_event_normal:
-        break;
-    case srtp_key_event_soft_limit:
-        srtp_handle_event(ctx, stream, event_key_soft_limit);
-        break;
-    case srtp_key_event_hard_limit:
-        srtp_handle_event(ctx, stream, event_key_hard_limit);
-        return srtp_err_status_key_expired;
-    default:
-        break;
+    status = srtp_update_key_limits(ctx, stream, &session_keys->rtp_limit,
+                                    session_keys->limit_group);
+    if (status) {
+        return status;
     }
 
     if (hdr->x == 1 && session_keys->rtp_xtn_hdr_cipher) {
@@ -3692,6 +3697,7 @@ static srtp_err_status_t srtp_calc_aead_iv_srtcp(
  * AES-GCM mode with 128 or 256 bit keys.
  */
 static srtp_err_status_t srtp_protect_rtcp_aead(
+    srtp_t ctx,
     srtp_stream_ctx_t *stream,
     const uint8_t *rtcp,
     size_t rtcp_len,
@@ -3745,6 +3751,12 @@ static srtp_err_status_t srtp_protect_rtcp_aead(
     if (stream->use_mki) {
         srtp_inject_mki(srtcp + rtcp_len + tag_len + sizeof(srtcp_trailer_t),
                         session_keys, stream->mki_size);
+    }
+
+    status = srtp_update_key_limits(ctx, stream, &session_keys->rtcp_limit,
+                                    session_keys->limit_group);
+    if (status) {
+        return status;
     }
 
     /*
@@ -3995,6 +4007,12 @@ static srtp_err_status_t srtp_unprotect_rtcp_aead(
         }
     }
 
+    status = srtp_update_key_limits(ctx, stream, &session_keys->rtcp_limit,
+                                    session_keys->limit_group);
+    if (status) {
+        return status;
+    }
+
     *rtcp_len = srtcp_len;
 
     /* decrease the packet length by the length of the auth tag and seq_num*/
@@ -4141,8 +4159,8 @@ srtp_err_status_t srtp_protect_rtcp(srtp_t ctx,
      */
     if (session_keys->rtp_cipher->algorithm == SRTP_AES_GCM_128 ||
         session_keys->rtp_cipher->algorithm == SRTP_AES_GCM_256) {
-        return srtp_protect_rtcp_aead(stream, rtcp, rtcp_len, srtcp, srtcp_len,
-                                      session_keys);
+        return srtp_protect_rtcp_aead(ctx, stream, rtcp, rtcp_len, srtcp,
+                                      srtcp_len, session_keys);
     }
 
     /* get tag length from stream context */
@@ -4191,6 +4209,12 @@ srtp_err_status_t srtp_protect_rtcp(srtp_t ctx,
     /* Note: This would need to change for optional mikey data */
     auth_start = srtcp;
     auth_tag = srtcp + rtcp_len + sizeof(srtcp_trailer_t) + stream->mki_size;
+
+    status = srtp_update_key_limits(ctx, stream, &session_keys->rtcp_limit,
+                                    session_keys->limit_group);
+    if (status) {
+        return status;
+    }
 
     /*
      * check sequence number for overruns, and copy it into the packet
@@ -4502,6 +4526,12 @@ srtp_err_status_t srtp_unprotect_rtcp(srtp_t ctx,
     if (*rtcp_len <
         srtcp_len - sizeof(srtcp_trailer_t) - stream->mki_size - tag_len) {
         return srtp_err_status_buffer_small;
+    }
+
+    status = srtp_update_key_limits(ctx, stream, &session_keys->rtcp_limit,
+                                    session_keys->limit_group);
+    if (status) {
+        return status;
     }
 
     /* if not inplace need to copy rtcp header */

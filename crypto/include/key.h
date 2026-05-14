@@ -45,6 +45,8 @@
 #ifndef KEY_H
 #define KEY_H
 
+#include <stdbool.h>
+
 #include "rdbx.h" /* for srtp_xtd_seq_num_t */
 #include "err.h"
 
@@ -53,6 +55,7 @@ extern "C" {
 #endif
 
 typedef struct srtp_key_limit_ctx_t *srtp_key_limit_t;
+typedef struct srtp_key_limit_group_ctx_t *srtp_key_limit_group_t;
 
 typedef enum {
     srtp_key_event_normal,
@@ -63,10 +66,15 @@ typedef enum {
 srtp_err_status_t srtp_key_limit_set(srtp_key_limit_t key,
                                      const srtp_xtd_seq_num_t s);
 
-srtp_err_status_t srtp_key_limit_clone(srtp_key_limit_t original,
-                                       srtp_key_limit_t *new_key);
+bool srtp_key_limit_is_expired(srtp_key_limit_t key);
 
 srtp_key_event_t srtp_key_limit_update(srtp_key_limit_t key);
+
+bool srtp_key_limit_group_is_expired(srtp_key_limit_group_t group);
+
+srtp_err_status_t srtp_key_limit_group_reset(srtp_key_limit_group_t group);
+
+void srtp_key_limit_group_expire(srtp_key_limit_group_t group);
 
 typedef enum {
     srtp_key_state_normal,
@@ -78,6 +86,10 @@ typedef struct srtp_key_limit_ctx_t {
     srtp_xtd_seq_num_t num_left;
     srtp_key_state_t state;
 } srtp_key_limit_ctx_t;
+
+typedef struct srtp_key_limit_group_ctx_t {
+    bool expired;
+} srtp_key_limit_group_ctx_t;
 
 #ifdef __cplusplus
 }

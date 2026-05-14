@@ -455,6 +455,30 @@ srtp_err_status_t srtp_policy_add_key(srtp_policy_t policy,
                                       size_t mki_len);
 
 /**
+ * @brief Set master-key packet lifetimes.
+ *
+ * @param policy policy handle.
+ * @param key_index zero-based index of the configured master key.
+ * @param rtp_lifetime maximum number of SRTP packets for this key. Use 0 for
+ *        the RFC 3711 default, 2^48.
+ * @param rtcp_lifetime maximum number of SRTCP packets for this key. Use 0 for
+ *        the RFC 3711 default, 2^31.
+ *
+ * This must be called after the corresponding key has been added with
+ * srtp_policy_add_key(). Lifetimes are enforced independently for SRTP and
+ * SRTCP.
+ *
+ * @return
+ *    - srtp_err_status_ok if lifetimes were accepted.
+ *    - srtp_err_status_bad_param if policy is NULL, key_index does not name a
+ *      configured key, or a lifetime exceeds the RFC 3711 maximum.
+ */
+srtp_err_status_t srtp_policy_set_key_lifetime(srtp_policy_t policy,
+                                               size_t key_index,
+                                               uint64_t rtp_lifetime,
+                                               uint64_t rtcp_lifetime);
+
+/**
  * @brief Remove all configured master keys from a policy.
  *
  * @param policy policy handle.
