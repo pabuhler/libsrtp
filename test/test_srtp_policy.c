@@ -457,6 +457,30 @@ static void srtp_policy_remove_keys_simple(void)
     srtp_policy_destroy(policy);
 }
 
+static void srtp_policy_set_key_lifetime_values(void)
+{
+    srtp_policy_t policy;
+
+    create_valid_policy(&policy);
+
+    CHECK_OK(srtp_policy_set_key_lifetime(policy, 0, 1, 1));
+    CHECK_OK(srtp_policy_set_key_lifetime(policy, 0, 0, 0));
+    CHECK_OK(srtp_policy_set_key_lifetime(policy, 0, (uint64_t)1 << 48,
+                                          (uint64_t)1 << 31));
+    CHECK_RETURN(srtp_policy_set_key_lifetime(policy, 1, 1, 1),
+                 srtp_err_status_bad_param);
+    CHECK_RETURN(
+        srtp_policy_set_key_lifetime(policy, 0, ((uint64_t)1 << 48) + 1, 1),
+        srtp_err_status_bad_param);
+    CHECK_RETURN(
+        srtp_policy_set_key_lifetime(policy, 0, 1, ((uint64_t)1 << 31) + 1),
+        srtp_err_status_bad_param);
+    CHECK_RETURN(srtp_policy_set_key_lifetime(NULL, 0, 1, 1),
+                 srtp_err_status_bad_param);
+
+    srtp_policy_destroy(policy);
+}
+
 static void srtp_policy_set_window_size_invalid_values_fail(void)
 {
     srtp_policy_t policy;
@@ -711,6 +735,8 @@ TEST_LIST = {
     { "srtp_policy_add_key_max_master_keys_limit()",
       srtp_policy_add_key_max_master_keys_limit },
     { "srtp_policy_remove_keys_simple()", srtp_policy_remove_keys_simple },
+    { "srtp_policy_set_key_lifetime_values()",
+      srtp_policy_set_key_lifetime_values },
     { "srtp_policy_set_window_size_invalid_values_fail()",
       srtp_policy_set_window_size_invalid_values_fail },
     { "srtp_policy_set_window_size_valid_values_ok()",

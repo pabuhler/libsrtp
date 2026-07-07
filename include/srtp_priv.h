@@ -84,6 +84,8 @@ typedef struct srtp_master_key_t {
     size_t salt_len;
     uint8_t mki_id[SRTP_MAX_MKI_LEN];
     size_t mki_id_len;
+    uint64_t rtp_lifetime;
+    uint64_t rtcp_lifetime;
 } srtp_master_key_t;
 
 typedef struct srtp_policy_ctx_t_ {
@@ -129,6 +131,16 @@ static inline bool srtp_policy_is_valid_window_size(size_t window_size)
     return window_size == 0 || (window_size >= 64 && window_size < 0x8000);
 }
 
+static inline uint64_t srtp_default_rtp_key_lifetime(void)
+{
+    return (uint64_t)1 << 48;
+}
+
+static inline uint64_t srtp_default_rtcp_key_lifetime(void)
+{
+    return (uint64_t)1 << 31;
+}
+
 /*
  * the following declarations are libSRTP internal functions
  */
@@ -162,7 +174,9 @@ typedef struct srtp_session_keys_t {
     uint8_t salt[SRTP_AEAD_SALT_LEN];
     uint8_t c_salt[SRTP_AEAD_SALT_LEN];
     uint8_t *mki_id;
-    srtp_key_limit_ctx_t *limit;
+    srtp_key_limit_ctx_t rtp_limit;
+    srtp_key_limit_ctx_t rtcp_limit;
+    srtp_key_limit_group_ctx_t *limit_group;
 } srtp_session_keys_t;
 
 /*

@@ -53,7 +53,7 @@
 srtp_err_status_t srtp_key_limit_set(srtp_key_limit_t key,
                                      const srtp_xtd_seq_num_t s)
 {
-    if (s < soft_limit) {
+    if (key == NULL || s == 0) {
         return srtp_err_status_bad_param;
     }
     key->num_left = s;
@@ -61,18 +61,19 @@ srtp_err_status_t srtp_key_limit_set(srtp_key_limit_t key,
     return srtp_err_status_ok;
 }
 
-srtp_err_status_t srtp_key_limit_clone(srtp_key_limit_t original,
-                                       srtp_key_limit_t *new_key)
+bool srtp_key_limit_is_expired(srtp_key_limit_t key)
 {
-    if (original == NULL) {
-        return srtp_err_status_bad_param;
-    }
-    *new_key = original;
-    return srtp_err_status_ok;
+    return key == NULL || key->num_left == 0 ||
+           key->state == srtp_key_state_expired;
 }
 
 srtp_key_event_t srtp_key_limit_update(srtp_key_limit_t key)
 {
+    if (key->num_left == 0) {
+        key->state = srtp_key_state_expired;
+        return srtp_key_event_hard_limit;
+    }
+
     key->num_left--;
     if (key->num_left >= soft_limit) {
         return srtp_key_event_normal; /* we're above the soft limit */
@@ -81,10 +82,27 @@ srtp_key_event_t srtp_key_limit_update(srtp_key_limit_t key)
         /* we just passed the soft limit, so change the state */
         key->state = srtp_key_state_past_soft_limit;
     }
-    if (key->num_left < 1) {
-        /* we just hit the hard limit */
-        key->state = srtp_key_state_expired;
-        return srtp_key_event_hard_limit;
-    }
     return srtp_key_event_soft_limit;
+}
+
+bool srtp_key_limit_group_is_expired(srtp_key_limit_group_t group)
+{
+    return group == NULL || group->expired;
+}
+
+srtp_err_status_t srtp_key_limit_group_reset(srtp_key_limit_group_t group)
+{
+    if (group == NULL) {
+        return srtp_err_status_bad_param;
+    }
+
+    group->expired = false;
+    return srtp_err_status_ok;
+}
+
+void srtp_key_limit_group_expire(srtp_key_limit_group_t group)
+{
+    if (group != NULL) {
+        group->expired = true;
+    }
 }

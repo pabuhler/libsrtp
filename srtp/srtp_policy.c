@@ -1079,6 +1079,26 @@ srtp_err_status_t srtp_policy_add_key(srtp_policy_t policy,
     return srtp_err_status_ok;
 }
 
+srtp_err_status_t srtp_policy_set_key_lifetime(srtp_policy_t policy,
+                                               size_t key_index,
+                                               uint64_t rtp_lifetime,
+                                               uint64_t rtcp_lifetime)
+{
+    if (policy == NULL || key_index >= policy->num_master_keys) {
+        return srtp_err_status_bad_param;
+    }
+
+    if (rtp_lifetime > srtp_default_rtp_key_lifetime() ||
+        rtcp_lifetime > srtp_default_rtcp_key_lifetime()) {
+        return srtp_err_status_bad_param;
+    }
+
+    policy->master_keys[key_index].rtp_lifetime = rtp_lifetime;
+    policy->master_keys[key_index].rtcp_lifetime = rtcp_lifetime;
+
+    return srtp_err_status_ok;
+}
+
 srtp_err_status_t srtp_policy_remove_keys(srtp_policy_t policy)
 {
     if (policy == NULL) {

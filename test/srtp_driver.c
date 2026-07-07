@@ -117,6 +117,18 @@ srtp_err_status_t srtp_test_update(void);
 
 srtp_err_status_t srtp_test_update_mki(void);
 
+srtp_err_status_t srtp_test_rtp_key_lifetime(void);
+
+srtp_err_status_t srtp_test_rtcp_key_lifetime(void);
+
+#ifdef GCM
+srtp_err_status_t srtp_test_rtp_key_lifetime_gcm(void);
+
+srtp_err_status_t srtp_test_rtcp_key_lifetime_gcm(void);
+#endif
+
+srtp_err_status_t srtp_test_key_lifetime_template_sharing(void);
+
 srtp_err_status_t srtp_test_protect_trailer_length(void);
 
 srtp_err_status_t srtp_test_protect_rtcp_trailer_length(void);
@@ -867,6 +879,49 @@ int main(int argc, char *argv[])
          */
         printf("testing srtp_update_mki()...");
         if (srtp_test_update_mki() == srtp_err_status_ok) {
+            printf("passed\n");
+        } else {
+            printf("failed\n");
+            exit(1);
+        }
+
+        printf("testing SRTP key lifetime enforcement...");
+        if (srtp_test_rtp_key_lifetime() == srtp_err_status_ok) {
+            printf("passed\n");
+        } else {
+            printf("failed\n");
+            exit(1);
+        }
+
+#ifdef GCM
+        printf("testing SRTP key lifetime enforcement (GCM)...");
+        if (srtp_test_rtp_key_lifetime_gcm() == srtp_err_status_ok) {
+            printf("passed\n");
+        } else {
+            printf("failed\n");
+            exit(1);
+        }
+#endif
+
+        printf("testing SRTCP key lifetime enforcement...");
+        if (srtp_test_rtcp_key_lifetime() == srtp_err_status_ok) {
+            printf("passed\n");
+        } else {
+            printf("failed\n");
+            exit(1);
+        }
+#ifdef GCM
+        printf("testing SRTCP key lifetime enforcement (GCM)...");
+        if (srtp_test_rtcp_key_lifetime_gcm() == srtp_err_status_ok) {
+            printf("passed\n");
+        } else {
+            printf("failed\n");
+            exit(1);
+        }
+#endif
+
+        printf("testing key lifetime sharing for template streams...");
+        if (srtp_test_key_lifetime_template_sharing() == srtp_err_status_ok) {
             printf("passed\n");
         } else {
             printf("failed\n");
@@ -4891,6 +4946,405 @@ srtp_err_status_t srtp_test_update_mki(void)
     }
 
     srtp_policy_destroy(policy);
+
+    return srtp_err_status_ok;
+}
+
+static size_t key_lifetime_soft_events;
+static size_t key_lifetime_hard_events;
+
+static void key_lifetime_event_handler(srtp_event_data_t *data)
+{
+    if (data->event == event_key_soft_limit) {
+        key_lifetime_soft_events++;
+    } else if (data->event == event_key_hard_limit) {
+        key_lifetime_hard_events++;
+    }
+}
+
+static void key_lifetime_reset_events(void)
+{
+    key_lifetime_soft_events = 0;
+    key_lifetime_hard_events = 0;
+    CHECK_OK(srtp_install_event_handler(key_lifetime_event_handler));
+}
+
+static srtp_err_status_t key_lifetime_create_policy(srtp_policy_t *policy,
+                                                    srtp_ssrc_t ssrc,
+                                                    srtp_profile_t profile,
+                                                    const uint8_t *key,
+                                                    uint64_t rtp_lifetime,
+                                                    uint64_t rtcp_lifetime)
+{
+    CHECK_OK(srtp_policy_create(policy));
+    CHECK_OK(srtp_policy_set_ssrc(*policy, ssrc));
+    CHECK_OK(srtp_policy_set_profile(*policy, profile));
+    CHECK_OK(policy_set_key(*policy, key));
+    CHECK_OK(
+        srtp_policy_set_key_lifetime(*policy, 0, rtp_lifetime, rtcp_lifetime));
+
+    return srtp_err_status_ok;
+}
+
+static void key_lifetime_protect_rtp(srtp_t sender, uint32_t ssrc, uint16_t seq)
+{
+    size_t packet_len;
+    uint8_t *packet =
+        create_rtp_test_packet(28, ssrc, seq, seq, false, &packet_len, NULL);
+    CHECK_OK(call_srtp_protect(sender, packet, &packet_len, 0));
+    free(packet);
+}
+
+static void key_lifetime_expect_protect_rtp(srtp_t sender,
+                                            uint32_t ssrc,
+                                            uint16_t seq,
+                                            srtp_err_status_t expected)
+{
+    size_t packet_len;
+    uint8_t *packet =
+        create_rtp_test_packet(28, ssrc, seq, seq, false, &packet_len, NULL);
+    CHECK_RETURN(call_srtp_protect(sender, packet, &packet_len, 0), expected);
+    free(packet);
+}
+
+static void key_lifetime_protect_rtcp(srtp_t sender, uint32_t ssrc)
+{
+    size_t packet_len;
+    uint8_t *packet = create_rtcp_test_packet(28, ssrc, &packet_len, NULL);
+    CHECK_OK(call_srtp_protect_rtcp(sender, packet, &packet_len, 0));
+    free(packet);
+}
+
+static void key_lifetime_expect_protect_rtcp(srtp_t sender,
+                                             uint32_t ssrc,
+                                             srtp_err_status_t expected)
+{
+    size_t packet_len;
+    uint8_t *packet = create_rtcp_test_packet(28, ssrc, &packet_len, NULL);
+    CHECK_RETURN(call_srtp_protect_rtcp(sender, packet, &packet_len, 0),
+                 expected);
+    free(packet);
+}
+
+static void key_lifetime_send_receive_rtp(srtp_t sender,
+                                          srtp_t receiver,
+                                          uint32_t ssrc,
+                                          uint16_t seq)
+{
+    size_t packet_len;
+    uint8_t *packet =
+        create_rtp_test_packet(28, ssrc, seq, seq, false, &packet_len, NULL);
+    CHECK_OK(call_srtp_protect(sender, packet, &packet_len, 0));
+    CHECK_OK(call_srtp_unprotect(receiver, packet, &packet_len));
+    free(packet);
+}
+
+static void key_lifetime_expect_receive_rtp(srtp_t sender,
+                                            srtp_t receiver,
+                                            uint32_t ssrc,
+                                            uint16_t seq,
+                                            srtp_err_status_t expected)
+{
+    size_t packet_len;
+    uint8_t *packet =
+        create_rtp_test_packet(28, ssrc, seq, seq, false, &packet_len, NULL);
+    CHECK_OK(call_srtp_protect(sender, packet, &packet_len, 0));
+    CHECK_RETURN(call_srtp_unprotect(receiver, packet, &packet_len), expected);
+    free(packet);
+}
+
+static void key_lifetime_send_receive_rtcp(srtp_t sender,
+                                           srtp_t receiver,
+                                           uint32_t ssrc)
+{
+    size_t packet_len;
+    uint8_t *packet = create_rtcp_test_packet(28, ssrc, &packet_len, NULL);
+    CHECK_OK(call_srtp_protect_rtcp(sender, packet, &packet_len, 0));
+    CHECK_OK(call_srtp_unprotect_rtcp(receiver, packet, &packet_len));
+    free(packet);
+}
+
+static void key_lifetime_expect_receive_rtcp(srtp_t sender,
+                                             srtp_t receiver,
+                                             uint32_t ssrc,
+                                             srtp_err_status_t expected)
+{
+    size_t packet_len;
+    uint8_t *packet = create_rtcp_test_packet(28, ssrc, &packet_len, NULL);
+    CHECK_OK(call_srtp_protect_rtcp(sender, packet, &packet_len, 0));
+    CHECK_RETURN(call_srtp_unprotect_rtcp(receiver, packet, &packet_len),
+                 expected);
+    free(packet);
+}
+
+static srtp_err_status_t srtp_test_rtp_key_lifetime_profile(
+    srtp_profile_t profile,
+    const uint8_t *key)
+{
+    srtp_t sender;
+    srtp_t receiver;
+    srtp_policy_t policy;
+    uint8_t *packet;
+    size_t packet_len;
+    const uint32_t ssrc = 0xdecafbad;
+
+    CHECK_OK(key_lifetime_create_policy(
+        &policy, (srtp_ssrc_t){ ssrc_any_outbound, 0 }, profile, key, 2, 0));
+    CHECK_OK(srtp_create(&sender, policy));
+    srtp_policy_destroy(policy);
+
+    key_lifetime_reset_events();
+    for (uint16_t seq = 1; seq <= 2; seq++) {
+        packet = create_rtp_test_packet(28, ssrc, seq, seq, false, &packet_len,
+                                        NULL);
+        CHECK_OK(call_srtp_protect(sender, packet, &packet_len, 0));
+        free(packet);
+    }
+    packet = create_rtp_test_packet(28, ssrc, 3, 3, false, &packet_len, NULL);
+    CHECK_RETURN(call_srtp_protect(sender, packet, &packet_len, 0),
+                 srtp_err_status_key_expired);
+    CHECK(key_lifetime_soft_events > 0);
+    CHECK(key_lifetime_hard_events == 1);
+    free(packet);
+    CHECK_OK(srtp_dealloc(sender));
+
+    CHECK_OK(key_lifetime_create_policy(
+        &policy, (srtp_ssrc_t){ ssrc_any_outbound, 0 }, profile, key, 2, 2));
+    CHECK_OK(srtp_create(&sender, policy));
+    srtp_policy_destroy(policy);
+
+    key_lifetime_reset_events();
+    key_lifetime_protect_rtp(sender, ssrc, 1);
+    key_lifetime_protect_rtp(sender, ssrc, 2);
+    key_lifetime_expect_protect_rtcp(sender, ssrc, srtp_err_status_key_expired);
+    CHECK(key_lifetime_hard_events == 1);
+    CHECK_OK(srtp_dealloc(sender));
+
+    CHECK_OK(key_lifetime_create_policy(
+        &policy, (srtp_ssrc_t){ ssrc_any_outbound, 0 }, profile, key, 0, 0));
+    CHECK_OK(srtp_create(&sender, policy));
+    srtp_policy_destroy(policy);
+
+    CHECK_OK(key_lifetime_create_policy(
+        &policy, (srtp_ssrc_t){ ssrc_any_inbound, 0 }, profile, key, 2, 0));
+    CHECK_OK(srtp_create(&receiver, policy));
+    srtp_policy_destroy(policy);
+
+    key_lifetime_reset_events();
+    for (uint16_t seq = 1; seq <= 2; seq++) {
+        packet = create_rtp_test_packet(28, ssrc, seq, seq, false, &packet_len,
+                                        NULL);
+        CHECK_OK(call_srtp_protect(sender, packet, &packet_len, 0));
+        CHECK_OK(call_srtp_unprotect(receiver, packet, &packet_len));
+        free(packet);
+    }
+    packet = create_rtp_test_packet(28, ssrc, 3, 3, false, &packet_len, NULL);
+    CHECK_OK(call_srtp_protect(sender, packet, &packet_len, 0));
+    CHECK_RETURN(call_srtp_unprotect(receiver, packet, &packet_len),
+                 srtp_err_status_key_expired);
+    CHECK(key_lifetime_soft_events > 0);
+    CHECK(key_lifetime_hard_events == 1);
+    free(packet);
+
+    CHECK_OK(srtp_dealloc(sender));
+    CHECK_OK(srtp_dealloc(receiver));
+
+    CHECK_OK(key_lifetime_create_policy(
+        &policy, (srtp_ssrc_t){ ssrc_any_outbound, 0 }, profile, key, 0, 0));
+    CHECK_OK(srtp_create(&sender, policy));
+    srtp_policy_destroy(policy);
+
+    CHECK_OK(key_lifetime_create_policy(
+        &policy, (srtp_ssrc_t){ ssrc_any_inbound, 0 }, profile, key, 2, 2));
+    CHECK_OK(srtp_create(&receiver, policy));
+    srtp_policy_destroy(policy);
+
+    key_lifetime_reset_events();
+    key_lifetime_send_receive_rtp(sender, receiver, ssrc, 1);
+    key_lifetime_send_receive_rtp(sender, receiver, ssrc, 2);
+    key_lifetime_expect_receive_rtcp(sender, receiver, ssrc,
+                                     srtp_err_status_key_expired);
+    CHECK(key_lifetime_hard_events == 1);
+
+    CHECK_OK(srtp_dealloc(sender));
+    CHECK_OK(srtp_dealloc(receiver));
+    CHECK_OK(srtp_install_event_handler(NULL));
+
+    return srtp_err_status_ok;
+}
+
+srtp_err_status_t srtp_test_rtp_key_lifetime(void)
+{
+    return srtp_test_rtp_key_lifetime_profile(srtp_profile_aes128_cm_sha1_80,
+                                              test_key);
+}
+
+#ifdef GCM
+srtp_err_status_t srtp_test_rtp_key_lifetime_gcm(void)
+{
+    return srtp_test_rtp_key_lifetime_profile(srtp_profile_aead_aes_128_gcm,
+                                              test_key_gcm);
+}
+#endif
+
+static srtp_err_status_t srtp_test_rtcp_key_lifetime_profile(
+    srtp_profile_t profile,
+    const uint8_t *key)
+{
+    srtp_t sender;
+    srtp_t receiver;
+    srtp_policy_t policy;
+    uint8_t *packet;
+    size_t packet_len;
+    const uint32_t ssrc = 0xdecafbad;
+
+    CHECK_OK(key_lifetime_create_policy(
+        &policy, (srtp_ssrc_t){ ssrc_any_outbound, 0 }, profile, key, 0, 2));
+    CHECK_OK(srtp_create(&sender, policy));
+    srtp_policy_destroy(policy);
+
+    key_lifetime_reset_events();
+    for (uint16_t i = 0; i < 2; i++) {
+        packet = create_rtcp_test_packet(28, ssrc, &packet_len, NULL);
+        CHECK_OK(call_srtp_protect_rtcp(sender, packet, &packet_len, 0));
+        free(packet);
+    }
+    packet = create_rtcp_test_packet(28, ssrc, &packet_len, NULL);
+    CHECK_RETURN(call_srtp_protect_rtcp(sender, packet, &packet_len, 0),
+                 srtp_err_status_key_expired);
+    CHECK(key_lifetime_soft_events > 0);
+    CHECK(key_lifetime_hard_events == 1);
+    free(packet);
+    CHECK_OK(srtp_dealloc(sender));
+
+    CHECK_OK(key_lifetime_create_policy(
+        &policy, (srtp_ssrc_t){ ssrc_any_outbound, 0 }, profile, key, 2, 2));
+    CHECK_OK(srtp_create(&sender, policy));
+    srtp_policy_destroy(policy);
+
+    key_lifetime_reset_events();
+    key_lifetime_protect_rtcp(sender, ssrc);
+    key_lifetime_protect_rtcp(sender, ssrc);
+    key_lifetime_expect_protect_rtp(sender, ssrc, 1,
+                                    srtp_err_status_key_expired);
+    CHECK(key_lifetime_hard_events == 1);
+    CHECK_OK(srtp_dealloc(sender));
+
+    CHECK_OK(key_lifetime_create_policy(
+        &policy, (srtp_ssrc_t){ ssrc_any_outbound, 0 }, profile, key, 0, 0));
+    CHECK_OK(srtp_create(&sender, policy));
+    srtp_policy_destroy(policy);
+
+    CHECK_OK(key_lifetime_create_policy(
+        &policy, (srtp_ssrc_t){ ssrc_any_inbound, 0 }, profile, key, 0, 2));
+    CHECK_OK(srtp_create(&receiver, policy));
+    srtp_policy_destroy(policy);
+
+    key_lifetime_reset_events();
+    for (uint16_t i = 0; i < 2; i++) {
+        packet = create_rtcp_test_packet(28, ssrc, &packet_len, NULL);
+        CHECK_OK(call_srtp_protect_rtcp(sender, packet, &packet_len, 0));
+        CHECK_OK(call_srtp_unprotect_rtcp(receiver, packet, &packet_len));
+        free(packet);
+    }
+    packet = create_rtcp_test_packet(28, ssrc, &packet_len, NULL);
+    CHECK_OK(call_srtp_protect_rtcp(sender, packet, &packet_len, 0));
+    CHECK_RETURN(call_srtp_unprotect_rtcp(receiver, packet, &packet_len),
+                 srtp_err_status_key_expired);
+    CHECK(key_lifetime_soft_events > 0);
+    CHECK(key_lifetime_hard_events == 1);
+    free(packet);
+
+    CHECK_OK(srtp_dealloc(sender));
+    CHECK_OK(srtp_dealloc(receiver));
+
+    CHECK_OK(key_lifetime_create_policy(
+        &policy, (srtp_ssrc_t){ ssrc_any_outbound, 0 }, profile, key, 0, 0));
+    CHECK_OK(srtp_create(&sender, policy));
+    srtp_policy_destroy(policy);
+
+    CHECK_OK(key_lifetime_create_policy(
+        &policy, (srtp_ssrc_t){ ssrc_any_inbound, 0 }, profile, key, 2, 2));
+    CHECK_OK(srtp_create(&receiver, policy));
+    srtp_policy_destroy(policy);
+
+    key_lifetime_reset_events();
+    key_lifetime_send_receive_rtcp(sender, receiver, ssrc);
+    key_lifetime_send_receive_rtcp(sender, receiver, ssrc);
+    key_lifetime_expect_receive_rtp(sender, receiver, ssrc, 1,
+                                    srtp_err_status_key_expired);
+    CHECK(key_lifetime_hard_events == 1);
+
+    CHECK_OK(srtp_dealloc(sender));
+    CHECK_OK(srtp_dealloc(receiver));
+    CHECK_OK(srtp_install_event_handler(NULL));
+
+    return srtp_err_status_ok;
+}
+
+srtp_err_status_t srtp_test_rtcp_key_lifetime(void)
+{
+    return srtp_test_rtcp_key_lifetime_profile(srtp_profile_aes128_cm_sha1_80,
+                                               test_key);
+}
+
+#ifdef GCM
+srtp_err_status_t srtp_test_rtcp_key_lifetime_gcm(void)
+{
+    return srtp_test_rtcp_key_lifetime_profile(srtp_profile_aead_aes_128_gcm,
+                                               test_key_gcm);
+}
+#endif
+
+srtp_err_status_t srtp_test_key_lifetime_template_sharing(void)
+{
+    srtp_t session;
+    srtp_policy_t policy;
+
+    CHECK_OK(key_lifetime_create_policy(
+        &policy, (srtp_ssrc_t){ ssrc_any_outbound, 0 },
+        srtp_profile_aes128_cm_sha1_80, test_key, 2, 2));
+    CHECK_OK(srtp_create(&session, policy));
+    srtp_policy_destroy(policy);
+
+    key_lifetime_reset_events();
+    key_lifetime_protect_rtp(session, 0xdecaf001, 1);
+    key_lifetime_protect_rtp(session, 0xdecaf002, 1);
+    key_lifetime_protect_rtp(session, 0xdecaf002, 2);
+    key_lifetime_expect_protect_rtp(session, 0xdecaf001, 2,
+                                    srtp_err_status_key_expired);
+    CHECK(key_lifetime_hard_events == 1);
+    key_lifetime_expect_protect_rtp(session, 0xdecaf002, 3,
+                                    srtp_err_status_key_expired);
+    CHECK(key_lifetime_hard_events == 2);
+    key_lifetime_expect_protect_rtcp(session, 0xdecaf002,
+                                     srtp_err_status_key_expired);
+    CHECK(key_lifetime_hard_events == 3);
+
+    CHECK_OK(srtp_dealloc(session));
+
+    CHECK_OK(key_lifetime_create_policy(
+        &policy, (srtp_ssrc_t){ ssrc_any_outbound, 0 },
+        srtp_profile_aes128_cm_sha1_80, test_key, 2, 2));
+    CHECK_OK(srtp_create(&session, policy));
+    srtp_policy_destroy(policy);
+
+    key_lifetime_reset_events();
+    key_lifetime_protect_rtcp(session, 0xdecaf101);
+    key_lifetime_protect_rtcp(session, 0xdecaf102);
+    key_lifetime_protect_rtcp(session, 0xdecaf102);
+    key_lifetime_expect_protect_rtcp(session, 0xdecaf101,
+                                     srtp_err_status_key_expired);
+    CHECK(key_lifetime_hard_events == 1);
+    key_lifetime_expect_protect_rtcp(session, 0xdecaf102,
+                                     srtp_err_status_key_expired);
+    CHECK(key_lifetime_hard_events == 2);
+    key_lifetime_expect_protect_rtp(session, 0xdecaf102, 1,
+                                    srtp_err_status_key_expired);
+    CHECK(key_lifetime_hard_events == 3);
+
+    CHECK_OK(srtp_dealloc(session));
+    CHECK_OK(srtp_install_event_handler(NULL));
 
     return srtp_err_status_ok;
 }
