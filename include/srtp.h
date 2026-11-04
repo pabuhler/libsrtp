@@ -513,6 +513,47 @@ srtp_err_status_t srtp_policy_add_key(srtp_policy_t policy,
                                       size_t mki_len);
 
 /**
+ * @brief Set master-key packet lifetimes.
+ *
+ * @param policy policy handle.
+ * @param key_index zero-based index of the configured master key.
+ * @param rtp_lifetime maximum number of SRTP packets for this key. Use 0 for
+ *        the RFC 3711 default, 2^48.
+ * @param rtcp_lifetime maximum number of SRTCP packets for this key. Use 0 for
+ *        the RFC 3711 default, 2^31.
+ *
+ * This must be called after the corresponding key has been added with
+ * srtp_policy_add_key(). Lifetimes are enforced independently for SRTP and
+ * SRTCP.
+ *
+ * Lifetimes are consumed by srtp_protect() and srtp_protect_rtcp() only. As in
+ * RFC 3711 section 9.2 the bounds are per stream, so every stream using the
+ * master key is given a budget of its own. Reaching either limit expires the
+ * stream that reached it together with every stream cloned from the same
+ * template, so that one exhausted stream forces a re-key on all of them.
+ * Streams added with a policy of their own keep independent budgets even when
+ * they carry the same master key, and have to be re-keyed by the application.
+ *
+ * event_key_soft_limit is reported once the remaining budget falls below a
+ * tenth of the lifetime, to give the application time to re-key. For a
+ * lifetime below ten packets that warning coincides with expiry.
+ *
+ * srtp_update() only grants a fresh budget when the master key actually
+ * changes. Re-keying with the same key carries the usage over, so the newly
+ * configured lifetime bounds the total usage of that master key and a stream
+ * may already be expired when the update returns.
+ *
+ * @return
+ *    - srtp_err_status_ok if lifetimes were accepted.
+ *    - srtp_err_status_bad_param if policy is NULL, key_index does not name a
+ *      configured key, or a lifetime exceeds the RFC 3711 maximum.
+ */
+srtp_err_status_t srtp_policy_set_key_lifetime(srtp_policy_t policy,
+                                               size_t key_index,
+                                               uint64_t rtp_lifetime,
+                                               uint64_t rtcp_lifetime);
+
+/**
  * @brief Remove all configured master keys from a policy.
  *
  * @param policy policy handle.
@@ -1119,6 +1160,15 @@ void *srtp_get_user_data(srtp_t ctx);
  * When an SRTP stream expires, the other streams in the same session
  * are unaffected, unless key sharing is used by that stream.  In the
  * latter case, all of the streams in the session will expire.
+ *
+ * The key usage limit events mark state transitions, so each is reported
+ * once per master key rather than once per packet.  The soft limit event is
+ * reported by the operation that brings the remaining budget below a tenth
+ * of the configured lifetime, and the hard limit event by the operation that
+ * exhausts the budget, or by the first operation after an srtp_update() that
+ * shortened a lifetime below the usage already accounted for.  Later
+ * operations using that key fail with srtp_err_status_key_expired without
+ * reporting a further event.
  */
 typedef enum {
     event_ssrc_collision,    /**< An SSRC collision occurred.           */
