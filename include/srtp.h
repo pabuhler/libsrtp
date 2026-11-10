@@ -513,6 +513,57 @@ srtp_err_status_t srtp_policy_add_key(srtp_policy_t policy,
                                       size_t mki_len);
 
 /**
+ * @brief Set master-key packet lifetimes.
+ *
+ * @param policy policy handle.
+ * @param key_index zero-based index of the configured master key.
+ * @param rtp_lifetime maximum number of SRTP packets for this key. Use 0 for
+ *        the RFC 3711 default, 2^48.
+ * @param rtcp_lifetime maximum number of SRTCP packets for this key. Use 0 for
+ *        the RFC 3711 default, 2^31.
+ *
+ * This must be called after the corresponding key has been added with
+ * srtp_policy_add_key(). Lifetimes are enforced independently for SRTP and
+ * SRTCP.
+ *
+ * Lifetimes are consumed by srtp_protect() and srtp_protect_rtcp() only. A
+ * repeated RTP index does not consume the SRTP count. The null cipher is not
+ * counted. As in RFC 3711 section 9.2 the bounds are per stream, so every
+ * stream is given a budget of its own. Reaching either limit expires that
+ * master key for both SRTP and SRTCP. Streams in the same session whose
+ * derived salts and MKI match share that expiry, including streams that were
+ * not cloned from the template. The first of them to exhaust its own count
+ * expires the others. A stream in another session is not affected.
+ *
+ * The protect call that exhausts a count still returns srtp_err_status_ok.
+ * event_key_hard_limit is reported once, on that call. A later protect
+ * returns srtp_err_status_key_expired and does not report the event again.
+ *
+ * event_key_soft_limit is reported once per count, when the remaining budget
+ * falls below a tenth of the lifetime. That protect still returns
+ * srtp_err_status_ok. When that would be the same packet that exhausts the
+ * count, which is the case for a lifetime below 20 packets, only
+ * event_key_hard_limit is reported.
+ *
+ * srtp_update() only grants a fresh budget when the master key actually
+ * changes. Re-keying with the same key carries the usage over, so the newly
+ * configured lifetime bounds the total usage of that master key and a stream
+ * may already be expired when the update returns. An update that leaves the
+ * count at zero does not report the hard limit by itself. The next protect
+ * writes nothing, reports event_key_hard_limit once, and returns
+ * srtp_err_status_key_expired.
+ *
+ * @return
+ *    - srtp_err_status_ok if lifetimes were accepted.
+ *    - srtp_err_status_bad_param if policy is NULL, key_index does not name a
+ *      configured key, or a lifetime exceeds the RFC 3711 maximum.
+ */
+srtp_err_status_t srtp_policy_set_key_lifetime(srtp_policy_t policy,
+                                               size_t key_index,
+                                               uint64_t rtp_lifetime,
+                                               uint64_t rtcp_lifetime);
+
+/**
  * @brief Remove all configured master keys from a policy.
  *
  * @param policy policy handle.
@@ -1110,15 +1161,30 @@ void *srtp_get_user_data(srtp_t ctx);
  * outside the `data plane', such as SSRC collisions and
  * key expirations.
  *
- * When a key expires or the maximum number of packets has been
- * reached, an SRTP stream will enter an `expired' state in which no
- * more packets can be protected or unprotected.  When this happens,
- * it is likely that you will want to either deallocate the stream
- * (using srtp_stream_remove()), and possibly allocate a new one.
+ * Key limits apply to srtp_protect() and srtp_protect_rtcp() only.
+ * Unprotect is not affected. Each SSRC has its own SRTP count and its own
+ * SRTCP count. Exhausting either count expires that master key for both.
+ * A repeated RTP index does not count. The null cipher is not counted.
  *
- * When an SRTP stream expires, the other streams in the same session
- * are unaffected, unless key sharing is used by that stream.  In the
- * latter case, all of the streams in the session will expire.
+ * Streams in the same session that use the same derived salts and MKI share
+ * one expiry flag. The first of them to exhaust its own count expires the
+ * others. A stream in another session is unaffected.
+ *
+ * The protect call that exhausts a count still returns srtp_err_status_ok,
+ * and event_key_hard_limit is reported once on that call. A later protect
+ * returns srtp_err_status_key_expired without a further event. An expired
+ * key is rejected before anything is written. When an srtp_update() leaves
+ * a count at zero, the next protect reports event_key_hard_limit once and
+ * returns srtp_err_status_key_expired.
+ *
+ * event_key_soft_limit is reported once per count, by the protect that
+ * brings the remainder below a tenth of the configured lifetime. That
+ * protect still returns srtp_err_status_ok. If that protect also exhausts
+ * the count, only event_key_hard_limit is reported.
+ *
+ * srtp_event_get_mki() reports which master key an event refers to. It is
+ * valid only for the pointer passed into the handler, and only until the
+ * handler returns. An SSRC collision has no master key.
  */
 typedef enum {
     event_ssrc_collision,    /**< An SSRC collision occurred.           */
@@ -1169,6 +1235,26 @@ typedef void(srtp_event_handler_func_t)(srtp_event_data_t *data);
  *             will be used by libSRTP to handle events.
  */
 srtp_err_status_t srtp_install_event_handler(srtp_event_handler_func_t func);
+
+/**
+ * @brief Read the MKI from a key-limit event.
+ *
+ * @param data the pointer passed into the event handler.
+ * @param mki receives the MKI bytes. May be NULL when len is 0.
+ * @param len receives the MKI length. 0 when MKI is not in use.
+ *
+ * The pointer and length are valid only for this data pointer, and only
+ * until the handler returns. Do not retain them. An SSRC-collision event
+ * has no master key and returns srtp_err_status_bad_param.
+ *
+ * @return
+ *    - srtp_err_status_ok if the event carries master-key info.
+ *    - srtp_err_status_bad_param if an argument is NULL or the event is
+ *      not a key-limit event.
+ */
+srtp_err_status_t srtp_event_get_mki(const srtp_event_data_t *data,
+                                     const uint8_t **mki,
+                                     size_t *len);
 
 /**
  * @brief Returns the version string of the library.
