@@ -342,6 +342,13 @@ srtp_err_status_t call_srtp_protect_rtcp(srtp_ctx_t *ctx,
     return status;
 }
 
+static void prepare_srtcp_reference_index_one(srtp_t session, uint32_t ssrc)
+{
+    srtp_stream_t stream = srtp_get_stream(session, htonl(ssrc));
+    CHECK(stream != NULL);
+    stream->rtcp_rdb.sender_initialized = true;
+}
+
 srtp_err_status_t call_srtp_unprotect_rtcp2(srtp_ctx_t *ctx,
                                             uint8_t *srtcp,
                                             size_t srtcp_len,
@@ -2575,6 +2582,7 @@ srtp_err_status_t srtp_validate(void)
     /*
      * protect plaintext rtcp, then compare with srtcp ciphertext
      */
+    prepare_srtcp_reference_index_one(srtp_snd, 0xcafebabe);
     len = 24;
     status = call_srtp_protect_rtcp(srtp_snd, rtcp_plaintext, &len, 0);
     if (status || (len != 38)) {
@@ -2741,6 +2749,7 @@ srtp_err_status_t srtp_validate_mki(void)
     /*
      * protect plaintext rtcp, then compare with srtcp ciphertext
      */
+    prepare_srtcp_reference_index_one(srtp_snd, 0xcafebabe);
     len = 24;
     status = call_srtp_protect_rtcp(srtp_snd, rtcp_plaintext, &len, 0);
     if (status) {
@@ -2904,6 +2913,7 @@ srtp_err_status_t srtp_validate_null_sha1_80(void)
     /*
      * protect plaintext rtcp, then compare with srtcp ciphertext
      */
+    prepare_srtcp_reference_index_one(srtp_snd, 0xcafebabe);
     len = 24;
     status = call_srtp_protect_rtcp(srtp_snd, rtcp_plaintext, &len, 0);
     if (status || (len != 38)) {
@@ -3058,6 +3068,7 @@ srtp_err_status_t srtp_validate_null_null(void)
     /*
      * protect plaintext rtcp, then compare with srtcp ciphertext
      */
+    prepare_srtcp_reference_index_one(srtp_snd, 0xcafebabe);
     len = 24;
     status = call_srtp_protect_rtcp(srtp_snd, rtcp_plaintext, &len, 0);
     if (!status && (len != 28)) {
@@ -3729,6 +3740,7 @@ srtp_err_status_t srtp_validate_gcm(void)
     /*
      * protect plaintext rtcp, then compare with srtcp ciphertext
      */
+    prepare_srtcp_reference_index_one(srtp_snd, 0xcafebabe);
     len = 24;
     status = call_srtp_protect_rtcp(srtp_snd, rtcp_plaintext, &len, 0);
     if (status || (len != 44)) {
