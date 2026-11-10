@@ -908,6 +908,15 @@ srtp_err_status_t srtp_policy_validate(srtp_policy_t policy)
             policy->mki_size != policy->master_keys[i].mki_id_len) {
             return srtp_err_status_bad_param;
         }
+        if (policy->use_mki) {
+            for (size_t j = 0; j < i; j++) {
+                if (srtp_octet_string_equal(policy->master_keys[i].mki_id,
+                                            policy->master_keys[j].mki_id,
+                                            policy->mki_size)) {
+                    return srtp_err_status_bad_param;
+                }
+            }
+        }
         if (!policy->use_mki && policy->master_keys[i].mki_id_len != 0) {
             return srtp_err_status_bad_param;
         }
@@ -1145,6 +1154,13 @@ srtp_err_status_t srtp_policy_add_key(srtp_policy_t policy,
 
     if (policy->num_master_keys >= SRTP_MAX_NUM_MASTER_KEYS) {
         return srtp_err_status_bad_param;
+    }
+
+    for (size_t i = 0; i < policy->num_master_keys; i++) {
+        if (mki_len > 0 && srtp_octet_string_equal(
+                               policy->master_keys[i].mki_id, mki, mki_len)) {
+            return srtp_err_status_bad_param;
+        }
     }
 
     size_t key_index = policy->num_master_keys;
