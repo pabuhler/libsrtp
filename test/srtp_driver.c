@@ -147,6 +147,8 @@ srtp_err_status_t srtp_test_roc_mismatch(void);
 
 srtp_err_status_t srtp_test_set_sender_roc(void);
 
+srtp_err_status_t srtp_test_initial_indices(void);
+
 srtp_err_status_t srtp_test_cryptex_csrc_but_no_extension_header(void);
 srtp_err_status_t srtp_test_cryptex_disable(void);
 srtp_err_status_t srtp_test_cryptex_not_in_place_distinct_buffer(void);
@@ -991,6 +993,14 @@ int main(int argc, char *argv[])
 
         printf("testing srtp_test_set_sender_roc()...");
         if (srtp_test_set_sender_roc() == srtp_err_status_ok) {
+            printf("passed\n");
+        } else {
+            printf("failed\n");
+            exit(1);
+        }
+
+        printf("testing srtp_test_initial_indices()...");
+        if (srtp_test_initial_indices() == srtp_err_status_ok) {
             printf("passed\n");
         } else {
             printf("failed\n");
@@ -6271,6 +6281,10 @@ static srtp_err_status_t test_set_receiver_roc(uint32_t packets,
 #endif
     CHECK_OK(srtp_policy_set_ssrc(receiver_policy,
                                   (srtp_ssrc_t){ ssrc_specific, ssrc }));
+    status = srtp_policy_set_roc(receiver_policy, roc_to_set);
+    if (status) {
+        return status;
+    }
 
     status = srtp_create(&receiver_session, receiver_policy);
     if (status) {
@@ -6290,12 +6304,6 @@ static srtp_err_status_t test_set_receiver_roc(uint32_t packets,
         return srtp_err_status_fail;
     }
     memcpy(recv_pkt_2, pkt_2, protected_msg_len_octets_2);
-
-    /* Set the ROC to the wanted value */
-    status = srtp_stream_set_roc(receiver_session, ssrc, roc_to_set);
-    if (status) {
-        return status;
-    }
 
     /* Unprotect the first packet */
     status = call_srtp_unprotect(receiver_session, recv_pkt_1,
@@ -6366,15 +6374,13 @@ static srtp_err_status_t test_set_sender_roc(uint16_t seq, uint32_t roc_to_set)
 #endif
     CHECK_OK(srtp_policy_set_ssrc(sender_policy,
                                   (srtp_ssrc_t){ ssrc_specific, ssrc }));
-
-    status = srtp_create(&sender_session, sender_policy);
+    status = srtp_policy_set_roc(sender_policy, roc_to_set);
     if (status) {
         return status;
     }
 
-    /* Set the ROC before encrypting the first packet */
-    status = srtp_stream_set_roc(sender_session, ssrc, roc_to_set);
-    if (status != srtp_err_status_ok) {
+    status = srtp_create(&sender_session, sender_policy);
+    if (status) {
         return status;
     }
 
@@ -6401,6 +6407,10 @@ static srtp_err_status_t test_set_sender_roc(uint16_t seq, uint32_t roc_to_set)
 #endif
     CHECK_OK(srtp_policy_set_ssrc(receiver_policy,
                                   (srtp_ssrc_t){ ssrc_specific, ssrc }));
+    status = srtp_policy_set_roc(receiver_policy, roc_to_set);
+    if (status) {
+        return status;
+    }
 
     status = srtp_create(&receiver_session, receiver_policy);
     if (status) {
@@ -6413,12 +6423,6 @@ static srtp_err_status_t test_set_sender_roc(uint16_t seq, uint32_t roc_to_set)
         return srtp_err_status_fail;
     }
     memcpy(recv_pkt, pkt, protected_msg_len_octets);
-
-    /* Set the ROC to the wanted value */
-    status = srtp_stream_set_roc(receiver_session, ssrc, roc_to_set);
-    if (status) {
-        return status;
-    }
 
     status = call_srtp_unprotect(receiver_session, recv_pkt,
                                  &protected_msg_len_octets);
@@ -6546,6 +6550,585 @@ srtp_err_status_t srtp_test_set_sender_roc(void)
     if (status) {
         return status;
     }
+
+    return srtp_err_status_ok;
+}
+
+static srtp_err_status_t make_specific_policy(srtp_policy_t *policy,
+                                              uint32_t ssrc)
+{
+    CHECK_OK(srtp_policy_create(policy));
+    CHECK_OK(srtp_policy_set_profile(*policy, srtp_profile_aes128_cm_sha1_80));
+    CHECK_OK(policy_set_key(*policy, test_key));
+    CHECK_OK(
+        srtp_policy_set_ssrc(*policy, (srtp_ssrc_t){ ssrc_specific, ssrc }));
+    return srtp_err_status_ok;
+}
+
+static srtp_err_status_t protect_rtp_seq(srtp_t session,
+                                         uint32_t ssrc,
+                                         uint16_t seq)
+{
+    size_t len;
+    uint8_t *pkt;
+
+    pkt = create_rtp_test_packet(32, ssrc, seq, 0, false, &len, NULL);
+    if (pkt == NULL) {
+        return srtp_err_status_alloc_fail;
+    }
+    srtp_err_status_t status = call_srtp_protect(session, pkt, &len, 0);
+    free(pkt);
+    return status;
+}
+
+static uint8_t *protect_rtp_copy(srtp_t session,
+                                 uint32_t ssrc,
+                                 uint16_t seq,
+                                 size_t *len)
+{
+    uint8_t *pkt;
+
+    pkt = create_rtp_test_packet(32, ssrc, seq, 0, false, len, NULL);
+    if (pkt == NULL) {
+        return NULL;
+    }
+    if (call_srtp_protect(session, pkt, len, 0) != srtp_err_status_ok) {
+        free(pkt);
+        return NULL;
+    }
+    return pkt;
+}
+
+static srtp_err_status_t protect_one_rtcp(srtp_t session, uint32_t ssrc)
+{
+    size_t len;
+    uint8_t *pkt;
+
+    pkt = create_rtcp_test_packet(32, ssrc, &len, NULL);
+    if (pkt == NULL) {
+        return srtp_err_status_alloc_fail;
+    }
+    srtp_err_status_t status = call_srtp_protect_rtcp(session, pkt, &len, 0);
+    free(pkt);
+    return status;
+}
+
+static uint8_t *protect_rtcp_copy(srtp_t session, uint32_t ssrc, size_t *len)
+{
+    uint8_t *pkt;
+
+    pkt = create_rtcp_test_packet(32, ssrc, len, NULL);
+    if (pkt == NULL) {
+        return NULL;
+    }
+    if (call_srtp_protect_rtcp(session, pkt, len, 0) != srtp_err_status_ok) {
+        free(pkt);
+        return NULL;
+    }
+    return pkt;
+}
+
+srtp_err_status_t srtp_test_initial_indices(void)
+{
+    const uint32_t ssrc = 0xcafebabe;
+    const uint32_t srtcp_start = 10;
+    srtp_err_status_t status;
+    srtp_policy_t policy;
+    srtp_policy_t updated;
+    srtp_t session;
+    srtp_t receiver;
+    uint32_t srtcp_index;
+    uint32_t roc;
+    uint64_t packet_index;
+    size_t old_len;
+    size_t next_len;
+    size_t rtcp_old_len;
+    size_t rtcp_next_len;
+    uint8_t *old_pkt;
+    uint8_t *next_pkt;
+    uint8_t *rtcp_old;
+    uint8_t *rtcp_next;
+
+    status = make_specific_policy(&policy, ssrc);
+    if (status) {
+        return status;
+    }
+    status = srtp_create(&session, policy);
+    if (status) {
+        return status;
+    }
+    status = srtp_stream_get_srtcp_index(session, ssrc, &srtcp_index);
+    if (status || srtcp_index != 0) {
+        return srtp_err_status_fail;
+    }
+    status = srtp_stream_get_packet_index(session, ssrc, &packet_index);
+    if (status || packet_index != 0) {
+        return srtp_err_status_fail;
+    }
+    status = protect_one_rtcp(session, ssrc);
+    if (status) {
+        return status;
+    }
+    status = srtp_stream_get_srtcp_index(session, ssrc, &srtcp_index);
+    if (status || srtcp_index != 1) {
+        return srtp_err_status_fail;
+    }
+    status = protect_one_rtcp(session, ssrc);
+    if (status) {
+        return status;
+    }
+    status = srtp_stream_get_srtcp_index(session, ssrc, &srtcp_index);
+    if (status || srtcp_index != 2) {
+        return srtp_err_status_fail;
+    }
+    srtp_dealloc(session);
+    srtp_policy_destroy(policy);
+
+    status = make_specific_policy(&policy, ssrc);
+    if (status) {
+        return status;
+    }
+    status = srtp_policy_set_srtcp_index(policy, 0);
+    if (status) {
+        return status;
+    }
+    status = srtp_create(&session, policy);
+    if (status) {
+        return status;
+    }
+    status = protect_one_rtcp(session, ssrc);
+    if (status) {
+        return status;
+    }
+    status = srtp_stream_get_srtcp_index(session, ssrc, &srtcp_index);
+    if (status || srtcp_index != 1) {
+        return srtp_err_status_fail;
+    }
+    srtp_dealloc(session);
+    srtp_policy_destroy(policy);
+
+    status = make_specific_policy(&policy, ssrc);
+    if (status) {
+        return status;
+    }
+    status = srtp_policy_set_srtcp_index(policy, srtcp_start);
+    if (status) {
+        return status;
+    }
+    status = srtp_create(&session, policy);
+    if (status) {
+        return status;
+    }
+    status = srtp_stream_get_srtcp_index(session, ssrc, &srtcp_index);
+    if (status || srtcp_index != srtcp_start) {
+        return srtp_err_status_fail;
+    }
+    status = protect_one_rtcp(session, ssrc);
+    if (status) {
+        return status;
+    }
+    status = protect_one_rtcp(session, ssrc);
+    if (status) {
+        return status;
+    }
+    status = srtp_stream_get_srtcp_index(session, ssrc, &srtcp_index);
+    if (status || srtcp_index != srtcp_start + 2) {
+        return srtp_err_status_fail;
+    }
+    srtp_dealloc(session);
+    srtp_policy_destroy(policy);
+
+    status = make_specific_policy(&policy, ssrc);
+    if (status) {
+        return status;
+    }
+    status = srtp_policy_set_srtcp_index(policy, srtcp_index);
+    if (status) {
+        return status;
+    }
+    status = srtp_create(&session, policy);
+    if (status) {
+        return status;
+    }
+    status = srtp_stream_get_srtcp_index(session, ssrc, &srtcp_index);
+    if (status || srtcp_index != srtcp_start + 2) {
+        return srtp_err_status_fail;
+    }
+    status = protect_one_rtcp(session, ssrc);
+    if (status) {
+        return status;
+    }
+    status = srtp_stream_get_srtcp_index(session, ssrc, &srtcp_index);
+    if (status || srtcp_index != srtcp_start + 3) {
+        return srtp_err_status_fail;
+    }
+    srtp_dealloc(session);
+    srtp_policy_destroy(policy);
+
+    status = make_specific_policy(&policy, ssrc);
+    if (status) {
+        return status;
+    }
+    status = srtp_policy_set_srtcp_index(policy, srtcp_start - 1);
+    if (status) {
+        return status;
+    }
+    status = srtp_create(&session, policy);
+    if (status) {
+        return status;
+    }
+    rtcp_old = protect_rtcp_copy(session, ssrc, &rtcp_old_len);
+    srtp_dealloc(session);
+    srtp_policy_destroy(policy);
+    if (rtcp_old == NULL) {
+        return srtp_err_status_fail;
+    }
+
+    status = make_specific_policy(&policy, ssrc);
+    if (status) {
+        return status;
+    }
+    status = srtp_policy_set_srtcp_index(policy, srtcp_start);
+    if (status) {
+        return status;
+    }
+    status = srtp_create(&session, policy);
+    if (status) {
+        return status;
+    }
+    rtcp_next = protect_rtcp_copy(session, ssrc, &rtcp_next_len);
+    srtp_dealloc(session);
+    srtp_policy_destroy(policy);
+    if (rtcp_next == NULL) {
+        return srtp_err_status_fail;
+    }
+
+    status = make_specific_policy(&policy, ssrc);
+    if (status) {
+        return status;
+    }
+    status = srtp_policy_set_srtcp_index(policy, srtcp_start);
+    if (status) {
+        return status;
+    }
+    status = srtp_create(&receiver, policy);
+    if (status) {
+        return status;
+    }
+    status = call_srtp_unprotect_rtcp(receiver, rtcp_old, &rtcp_old_len);
+    if (status != srtp_err_status_replay_old) {
+        return srtp_err_status_fail;
+    }
+    status = call_srtp_unprotect_rtcp(receiver, rtcp_next, &rtcp_next_len);
+    if (status) {
+        return status;
+    }
+    status = srtp_stream_get_srtcp_index(receiver, ssrc, &srtcp_index);
+    if (status || srtcp_index != srtcp_start + 1) {
+        return srtp_err_status_fail;
+    }
+    srtp_dealloc(receiver);
+    srtp_policy_destroy(policy);
+    free(rtcp_old);
+    free(rtcp_next);
+
+    status = make_specific_policy(&policy, ssrc);
+    if (status) {
+        return status;
+    }
+    status = srtp_policy_set_srtcp_index(policy, 200);
+    if (status) {
+        return status;
+    }
+    status = srtp_create(&session, policy);
+    if (status) {
+        return status;
+    }
+    rtcp_next = protect_rtcp_copy(session, ssrc, &rtcp_next_len);
+    srtp_dealloc(session);
+    srtp_policy_destroy(policy);
+    if (rtcp_next == NULL) {
+        return srtp_err_status_fail;
+    }
+
+    status = make_specific_policy(&policy, ssrc);
+    if (status) {
+        return status;
+    }
+    status = srtp_policy_set_srtcp_index(policy, srtcp_start);
+    if (status) {
+        return status;
+    }
+    status = srtp_create(&receiver, policy);
+    if (status) {
+        return status;
+    }
+    status = call_srtp_unprotect_rtcp(receiver, rtcp_next, &rtcp_next_len);
+    if (status) {
+        return status;
+    }
+    status = srtp_stream_get_srtcp_index(receiver, ssrc, &srtcp_index);
+    if (status || srtcp_index != 201) {
+        return srtp_err_status_fail;
+    }
+    srtp_dealloc(receiver);
+    srtp_policy_destroy(policy);
+    free(rtcp_next);
+
+    status = make_specific_policy(&policy, ssrc);
+    if (status) {
+        return status;
+    }
+    status = srtp_create(&session, policy);
+    if (status) {
+        return status;
+    }
+    status = protect_rtp_seq(session, ssrc, 65535);
+    if (status) {
+        return status;
+    }
+    status = srtp_stream_get_packet_index(session, ssrc, &packet_index);
+    if (status || packet_index != 65536) {
+        return srtp_err_status_fail;
+    }
+    status = srtp_stream_get_roc(session, ssrc, &roc);
+    if (status || roc != 0) {
+        return srtp_err_status_fail;
+    }
+    old_pkt = protect_rtp_copy(session, ssrc, 65535, &old_len);
+    srtp_dealloc(session);
+    srtp_policy_destroy(policy);
+    if (old_pkt != NULL) {
+        free(old_pkt);
+        return srtp_err_status_fail;
+    }
+
+    status = make_specific_policy(&policy, ssrc);
+    if (status) {
+        return status;
+    }
+    status = srtp_create(&session, policy);
+    if (status) {
+        return status;
+    }
+    old_pkt = protect_rtp_copy(session, ssrc, 65535, &old_len);
+    srtp_dealloc(session);
+    srtp_policy_destroy(policy);
+    if (old_pkt == NULL) {
+        return srtp_err_status_fail;
+    }
+
+    status = make_specific_policy(&policy, ssrc);
+    if (status) {
+        return status;
+    }
+    status = srtp_policy_set_packet_index(policy, 65536);
+    if (status) {
+        return status;
+    }
+    status = srtp_create(&session, policy);
+    if (status) {
+        return status;
+    }
+    status = srtp_stream_get_packet_index(session, ssrc, &packet_index);
+    if (status || packet_index != 65536) {
+        return srtp_err_status_fail;
+    }
+    next_pkt = protect_rtp_copy(session, ssrc, 0, &next_len);
+    if (next_pkt == NULL) {
+        return srtp_err_status_fail;
+    }
+    status = srtp_stream_get_roc(session, ssrc, &roc);
+    if (status || roc != 1) {
+        return srtp_err_status_fail;
+    }
+    status = srtp_stream_get_packet_index(session, ssrc, &packet_index);
+    if (status || packet_index != 65537) {
+        return srtp_err_status_fail;
+    }
+    srtp_dealloc(session);
+    srtp_policy_destroy(policy);
+
+    status = make_specific_policy(&policy, ssrc);
+    if (status) {
+        return status;
+    }
+    status = srtp_policy_set_packet_index(policy, 65536);
+    if (status) {
+        return status;
+    }
+    status = srtp_create(&receiver, policy);
+    if (status) {
+        return status;
+    }
+    status = call_srtp_unprotect(receiver, old_pkt, &old_len);
+    if (status != srtp_err_status_replay_fail) {
+        return srtp_err_status_fail;
+    }
+    status = call_srtp_unprotect(receiver, next_pkt, &next_len);
+    if (status) {
+        return status;
+    }
+    status = srtp_stream_get_roc(receiver, ssrc, &roc);
+    if (status || roc != 1) {
+        return srtp_err_status_fail;
+    }
+    srtp_dealloc(receiver);
+    srtp_policy_destroy(policy);
+    free(old_pkt);
+    free(next_pkt);
+
+    status = make_specific_policy(&policy, ssrc);
+    if (status) {
+        return status;
+    }
+    CHECK_RETURN(srtp_policy_set_roc(policy, 1), srtp_err_status_ok);
+    CHECK_RETURN(srtp_policy_set_packet_index(policy, 1),
+                 srtp_err_status_bad_param);
+    CHECK_RETURN(srtp_policy_set_packet_index(policy, 0),
+                 srtp_err_status_bad_param);
+    CHECK_OK(srtp_policy_set_roc(policy, 0));
+    CHECK_OK(srtp_policy_set_packet_index(policy, 1));
+    CHECK_RETURN(srtp_policy_set_roc(policy, 0), srtp_err_status_bad_param);
+    CHECK_OK(srtp_policy_set_packet_index(policy, 0));
+    srtp_policy_destroy(policy);
+
+    status = make_specific_policy(&policy, ssrc);
+    if (status) {
+        return status;
+    }
+    status = srtp_policy_set_roc(policy, 7);
+    if (status) {
+        return status;
+    }
+    status = srtp_policy_set_srtcp_index(policy, srtcp_start);
+    if (status) {
+        return status;
+    }
+    status = srtp_create(&session, policy);
+    if (status) {
+        return status;
+    }
+    status = srtp_stream_get_roc(session, ssrc, &roc);
+    if (status || roc != 7) {
+        return srtp_err_status_fail;
+    }
+    status = srtp_stream_get_packet_index(session, ssrc, &packet_index);
+    if (status != srtp_err_status_bad_param) {
+        return srtp_err_status_fail;
+    }
+    status = srtp_stream_get_srtcp_index(session, ssrc, &srtcp_index);
+    if (status || srtcp_index != srtcp_start) {
+        return srtp_err_status_fail;
+    }
+    status = make_specific_policy(&updated, ssrc);
+    if (status) {
+        return status;
+    }
+    status = srtp_update(session, updated);
+    if (status) {
+        return status;
+    }
+    status = srtp_stream_get_roc(session, ssrc, &roc);
+    if (status || roc != 7) {
+        return srtp_err_status_fail;
+    }
+    status = srtp_stream_get_srtcp_index(session, ssrc, &srtcp_index);
+    if (status || srtcp_index != srtcp_start) {
+        return srtp_err_status_fail;
+    }
+    srtp_dealloc(session);
+    srtp_policy_destroy(policy);
+    srtp_policy_destroy(updated);
+
+    status = make_specific_policy(&policy, ssrc);
+    if (status) {
+        return status;
+    }
+    status = srtp_policy_set_packet_index(policy, 65536);
+    if (status) {
+        return status;
+    }
+    status = srtp_policy_set_srtcp_index(policy, srtcp_start);
+    if (status) {
+        return status;
+    }
+    status = srtp_create(&session, policy);
+    if (status) {
+        return status;
+    }
+    status = protect_rtp_seq(session, ssrc, 0);
+    if (status) {
+        return status;
+    }
+    status = protect_one_rtcp(session, ssrc);
+    if (status) {
+        return status;
+    }
+    status = make_specific_policy(&updated, ssrc);
+    if (status) {
+        return status;
+    }
+    status = srtp_update(session, updated);
+    if (status) {
+        return status;
+    }
+    status = srtp_stream_get_packet_index(session, ssrc, &packet_index);
+    if (status || packet_index != 65537) {
+        return srtp_err_status_fail;
+    }
+    status = srtp_stream_get_srtcp_index(session, ssrc, &srtcp_index);
+    if (status || srtcp_index != srtcp_start + 1) {
+        return srtp_err_status_fail;
+    }
+    status = protect_rtp_seq(session, ssrc, 65535);
+    if (status != srtp_err_status_replay_fail) {
+        return srtp_err_status_fail;
+    }
+    status = protect_rtp_seq(session, ssrc, 1);
+    if (status) {
+        return status;
+    }
+    status = srtp_stream_get_packet_index(session, ssrc, &packet_index);
+    if (status || packet_index != 65538) {
+        return srtp_err_status_fail;
+    }
+    srtp_dealloc(session);
+    srtp_policy_destroy(policy);
+    srtp_policy_destroy(updated);
+
+    CHECK_OK(srtp_policy_create(&policy));
+    CHECK_OK(srtp_policy_set_profile(policy, srtp_profile_aes128_cm_sha1_80));
+    CHECK_OK(policy_set_key(policy, test_key));
+    CHECK_OK(
+        srtp_policy_set_ssrc(policy, (srtp_ssrc_t){ ssrc_any_outbound, 0 }));
+    CHECK_RETURN(srtp_policy_set_roc(policy, 3), srtp_err_status_bad_param);
+    CHECK_RETURN(srtp_policy_set_packet_index(policy, 65536),
+                 srtp_err_status_bad_param);
+    CHECK_RETURN(srtp_policy_set_srtcp_index(policy, srtcp_start),
+                 srtp_err_status_bad_param);
+    status = srtp_create(&session, policy);
+    if (status) {
+        return status;
+    }
+    status = protect_rtp_seq(session, ssrc, 43210);
+    if (status) {
+        return status;
+    }
+    status = srtp_stream_get_roc(session, ssrc, &roc);
+    if (status || roc != 0) {
+        return srtp_err_status_fail;
+    }
+    status = protect_one_rtcp(session, ssrc);
+    if (status) {
+        return status;
+    }
+    status = srtp_stream_get_srtcp_index(session, ssrc, &srtcp_index);
+    if (status || srtcp_index != 1) {
+        return srtp_err_status_fail;
+    }
+    srtp_dealloc(session);
+    srtp_policy_destroy(policy);
 
     return srtp_err_status_ok;
 }
