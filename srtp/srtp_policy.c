@@ -836,6 +836,18 @@ void srtp_policy_destroy(srtp_policy_t policy)
     srtp_crypto_free(policy);
 }
 
+static bool srtp_master_key_matches_material(
+    const srtp_master_key_t *master_key,
+    const uint8_t *key,
+    size_t key_len,
+    const uint8_t *salt,
+    size_t salt_len)
+{
+    return master_key->key_len == key_len && master_key->salt_len == salt_len &&
+           srtp_octet_string_equal(master_key->key, key, key_len) &&
+           srtp_octet_string_equal(master_key->key + key_len, salt, salt_len);
+}
+
 srtp_err_status_t srtp_policy_validate(srtp_policy_t policy)
 {
     if (policy == NULL) {
@@ -893,6 +905,21 @@ srtp_err_status_t srtp_policy_validate(srtp_policy_t policy)
         if (policy->use_mki &&
             policy->mki_size != policy->master_keys[i].mki_id_len) {
             return srtp_err_status_bad_param;
+        }
+        if (policy->use_mki) {
+            for (size_t j = 0; j < i; j++) {
+                if (srtp_octet_string_equal(policy->master_keys[i].mki_id,
+                                            policy->master_keys[j].mki_id,
+                                            policy->mki_size) ||
+                    srtp_master_key_matches_material(
+                        &policy->master_keys[j], policy->master_keys[i].key,
+                        policy->master_keys[i].key_len,
+                        policy->master_keys[i].key +
+                            policy->master_keys[i].key_len,
+                        policy->master_keys[i].salt_len)) {
+                    return srtp_err_status_bad_param;
+                }
+            }
         }
         if (!policy->use_mki && policy->master_keys[i].mki_id_len != 0) {
             return srtp_err_status_bad_param;
@@ -1148,6 +1175,15 @@ srtp_err_status_t srtp_policy_add_key(srtp_policy_t policy,
 
     if (policy->num_master_keys >= SRTP_MAX_NUM_MASTER_KEYS) {
         return srtp_err_status_bad_param;
+    }
+
+    for (size_t i = 0; i < policy->num_master_keys; i++) {
+        if ((mki_len > 0 && srtp_octet_string_equal(
+                                policy->master_keys[i].mki_id, mki, mki_len)) ||
+            srtp_master_key_matches_material(&policy->master_keys[i], key,
+                                             key_len, salt, salt_len)) {
+            return srtp_err_status_bad_param;
+        }
     }
 
     size_t key_index = policy->num_master_keys;
