@@ -48,43 +48,84 @@
 
 #include "key.h"
 
-#define soft_limit 0x10000
+/*
+ * the soft limit warns once the remaining budget drops below a tenth of the
+ * configured lifetime, so that the warning is proportional to the lifetime
+ * rather than a fixed count that is meaningless for short lifetimes
+ */
+static srtp_xtd_seq_num_t srtp_key_soft_limit(const srtp_xtd_seq_num_t s)
+{
+    srtp_xtd_seq_num_t limit = s / 10;
+    if (limit == 0) {
+        limit = 1;
+    }
+    return limit;
+}
 
 srtp_err_status_t srtp_key_limit_set(srtp_key_limit_t key,
                                      const srtp_xtd_seq_num_t s)
 {
-    if (s < soft_limit) {
+    if (key == NULL || s == 0) {
         return srtp_err_status_bad_param;
     }
+    key->limit = s;
     key->num_left = s;
+    key->soft_limit = srtp_key_soft_limit(s);
     key->state = srtp_key_state_normal;
     return srtp_err_status_ok;
 }
 
-srtp_err_status_t srtp_key_limit_clone(srtp_key_limit_t original,
-                                       srtp_key_limit_t *new_key)
+bool srtp_key_limit_is_expired(srtp_key_limit_t key)
 {
-    if (original == NULL) {
-        return srtp_err_status_bad_param;
-    }
-    *new_key = original;
-    return srtp_err_status_ok;
+    return key == NULL || key->num_left == 0 ||
+           key->state == srtp_key_state_expired;
 }
 
+/*
+ * callers reject an expired key before encrypting, so num_left is above zero
+ * here; the check only guards against wrapping the counter. When the soft
+ * limit and expiry fall on the same packet only the hard limit is reported.
+ */
 srtp_key_event_t srtp_key_limit_update(srtp_key_limit_t key)
 {
+    if (key->num_left == 0) {
+        key->state = srtp_key_state_expired;
+        return srtp_key_event_normal;
+    }
+
     key->num_left--;
-    if (key->num_left >= soft_limit) {
-        return srtp_key_event_normal; /* we're above the soft limit */
-    }
-    if (key->state == srtp_key_state_normal) {
-        /* we just passed the soft limit, so change the state */
-        key->state = srtp_key_state_past_soft_limit;
-    }
-    if (key->num_left < 1) {
-        /* we just hit the hard limit */
+    if (key->num_left == 0) {
         key->state = srtp_key_state_expired;
         return srtp_key_event_hard_limit;
     }
-    return srtp_key_event_soft_limit;
+    if (key->num_left < key->soft_limit &&
+        key->state == srtp_key_state_normal) {
+        key->state = srtp_key_state_past_soft_limit;
+        return srtp_key_event_soft_limit;
+    }
+    return srtp_key_event_normal;
+}
+
+void srtp_key_limit_carry_over(srtp_key_limit_t to,
+                               const struct srtp_key_limit_ctx_t *from)
+{
+    srtp_xtd_seq_num_t used;
+
+    if (to == NULL || from == NULL) {
+        return;
+    }
+
+    used = from->limit - from->num_left;
+    if (used >= to->num_left) {
+        to->num_left = 0;
+        to->state = srtp_key_state_expired;
+        return;
+    }
+
+    to->num_left -= used;
+
+    /*
+     * the state is deliberately left alone, so that a budget that lands below
+     * the soft limit is still reported by the next update
+     */
 }
