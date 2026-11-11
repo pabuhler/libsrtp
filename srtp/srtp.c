@@ -787,13 +787,35 @@ static void srtp_rdbx_restore_bits(srtp_rdbx_t *rdbx,
                                    size_t saved_len)
 {
     size_t length = bitvector_get_length(&rdbx->bitmask);
+    size_t new_words;
+    size_t old_words;
+    size_t copy_words;
+    size_t src_word;
+    size_t dst_word;
 
-    if (saved == NULL || length == 0 || length != saved_len) {
+    if (saved == NULL || length == 0 || saved_len == 0) {
         return;
     }
 
-    memcpy(rdbx->bitmask.word, saved,
-           srtp_replay_word_count(length) * sizeof(uint32_t));
+    /*
+     * The highest bit is the newest packet index. A larger window grows
+     * toward older indices, so those new bits stay clear. A smaller window
+     * keeps the newest bits and drops the ones that fall outside it.
+     * bitvector_alloc() stores the length as a whole number of words.
+     */
+    new_words = srtp_replay_word_count(length);
+    old_words = srtp_replay_word_count(saved_len);
+    if (new_words == 0 || old_words == 0) {
+        return;
+    }
+
+    bitvector_set_to_zero(&rdbx->bitmask);
+
+    copy_words = new_words < old_words ? new_words : old_words;
+    src_word = old_words - copy_words;
+    dst_word = new_words - copy_words;
+    memcpy(&rdbx->bitmask.word[dst_word], &saved[src_word],
+           copy_words * sizeof(uint32_t));
 }
 
 static srtp_err_status_t srtp_stream_clone(

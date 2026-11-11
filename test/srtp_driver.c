@@ -149,6 +149,8 @@ srtp_err_status_t srtp_test_set_sender_roc(void);
 
 srtp_err_status_t srtp_test_initial_indices(void);
 
+srtp_err_status_t srtp_test_update_replay_window(void);
+
 srtp_err_status_t srtp_test_cryptex_csrc_but_no_extension_header(void);
 srtp_err_status_t srtp_test_cryptex_disable(void);
 srtp_err_status_t srtp_test_cryptex_not_in_place_distinct_buffer(void);
@@ -1001,6 +1003,14 @@ int main(int argc, char *argv[])
 
         printf("testing srtp_test_initial_indices()...");
         if (srtp_test_initial_indices() == srtp_err_status_ok) {
+            printf("passed\n");
+        } else {
+            printf("failed\n");
+            exit(1);
+        }
+
+        printf("testing srtp_test_update_replay_window()...");
+        if (srtp_test_update_replay_window() == srtp_err_status_ok) {
             printf("passed\n");
         } else {
             printf("failed\n");
@@ -7131,6 +7141,157 @@ srtp_err_status_t srtp_test_initial_indices(void)
     srtp_policy_destroy(policy);
 
     return srtp_err_status_ok;
+}
+
+static void expect_unprotect_copy(srtp_t session,
+                                  const uint8_t *pkt,
+                                  size_t len,
+                                  srtp_err_status_t expected)
+{
+    uint8_t *copy = malloc(len);
+    size_t copy_len = len;
+    srtp_err_status_t status;
+
+    CHECK(copy != NULL);
+    memcpy(copy, pkt, len);
+    status = call_srtp_unprotect(session, copy, &copy_len);
+    free(copy);
+    CHECK_RETURN(status, expected);
+}
+
+/*
+ * Receive seq 1..80, except seq 40, on a 64-bit replay window. Index 80 then
+ * covers 17..80. Seq 16 has slid out, and seq 40 is a hole inside the window.
+ * Growing to 96 bits must keep 17 and 80 marked and leave 16 unmarked.
+ * Shrinking back to 64 bits must keep that pair marked and the hole clear.
+ */
+static srtp_err_status_t test_update_replay_window(srtp_ssrc_type_t ssrc_type)
+{
+    const uint32_t ssrc = 0xcafebabe;
+    const uint16_t newest = 80;
+    const uint16_t hole = 40;
+    const uint16_t oldest_kept = 17;
+    const uint16_t dropped = 16;
+    srtp_policy_t sender_policy;
+    srtp_policy_t receiver_policy;
+    srtp_t sender;
+    srtp_t receiver;
+    uint8_t *newest_pkt = NULL;
+    uint8_t *oldest_pkt = NULL;
+    uint8_t *dropped_pkt = NULL;
+    uint8_t *hole_pkt = NULL;
+    size_t newest_len = 0;
+    size_t oldest_len = 0;
+    size_t dropped_len = 0;
+    size_t hole_len = 0;
+    srtp_err_status_t status = srtp_err_status_ok;
+
+    CHECK_OK(srtp_policy_create(&sender_policy));
+    CHECK_OK(srtp_policy_set_profile(sender_policy,
+                                     srtp_profile_aes128_cm_sha1_80));
+    CHECK_OK(policy_set_key(sender_policy, test_key));
+    CHECK_OK(srtp_policy_set_ssrc(sender_policy,
+                                  (srtp_ssrc_t){ ssrc_specific, ssrc }));
+    CHECK_OK(srtp_create(&sender, sender_policy));
+
+    CHECK_OK(srtp_policy_create(&receiver_policy));
+    CHECK_OK(srtp_policy_set_profile(receiver_policy,
+                                     srtp_profile_aes128_cm_sha1_80));
+    CHECK_OK(policy_set_key(receiver_policy, test_key));
+    CHECK_OK(srtp_policy_set_ssrc(
+        receiver_policy,
+        (srtp_ssrc_t){ ssrc_type, ssrc_type == ssrc_specific ? ssrc : 0 }));
+    CHECK_OK(srtp_policy_set_window_size(receiver_policy, 64));
+    CHECK_OK(srtp_create(&receiver, receiver_policy));
+
+    for (uint16_t seq = 1; seq <= newest; seq++) {
+        size_t len;
+        uint8_t *pkt =
+            create_rtp_test_packet(32, ssrc, seq, 0, false, &len, NULL);
+        CHECK(pkt != NULL);
+        status = call_srtp_protect(sender, pkt, &len, 0);
+        if (status) {
+            free(pkt);
+            return status;
+        }
+
+        if (seq == newest || seq == oldest_kept || seq == dropped ||
+            seq == hole) {
+            uint8_t *saved = malloc(len);
+            CHECK(saved != NULL);
+            memcpy(saved, pkt, len);
+            if (seq == newest) {
+                newest_pkt = saved;
+                newest_len = len;
+            } else if (seq == oldest_kept) {
+                oldest_pkt = saved;
+                oldest_len = len;
+            } else if (seq == dropped) {
+                dropped_pkt = saved;
+                dropped_len = len;
+            } else {
+                hole_pkt = saved;
+                hole_len = len;
+                free(pkt);
+                continue;
+            }
+        }
+
+        status = call_srtp_unprotect(receiver, pkt, &len);
+        free(pkt);
+        if (status) {
+            return status;
+        }
+    }
+
+    expect_unprotect_copy(receiver, newest_pkt, newest_len,
+                           srtp_err_status_replay_fail);
+    expect_unprotect_copy(receiver, oldest_pkt, oldest_len,
+                           srtp_err_status_replay_fail);
+    expect_unprotect_copy(receiver, dropped_pkt, dropped_len,
+                           srtp_err_status_replay_old);
+
+    CHECK_OK(srtp_policy_set_window_size(receiver_policy, 96));
+    CHECK_OK(srtp_update(receiver, receiver_policy));
+    expect_unprotect_copy(receiver, newest_pkt, newest_len,
+                           srtp_err_status_replay_fail);
+    expect_unprotect_copy(receiver, oldest_pkt, oldest_len,
+                           srtp_err_status_replay_fail);
+    expect_unprotect_copy(receiver, dropped_pkt, dropped_len,
+                           srtp_err_status_ok);
+
+    CHECK_OK(srtp_policy_set_window_size(receiver_policy, 64));
+    CHECK_OK(srtp_update(receiver, receiver_policy));
+    expect_unprotect_copy(receiver, newest_pkt, newest_len,
+                           srtp_err_status_replay_fail);
+    expect_unprotect_copy(receiver, oldest_pkt, oldest_len,
+                           srtp_err_status_replay_fail);
+    expect_unprotect_copy(receiver, dropped_pkt, dropped_len,
+                           srtp_err_status_replay_old);
+    expect_unprotect_copy(receiver, hole_pkt, hole_len, srtp_err_status_ok);
+
+    srtp_dealloc(sender);
+    srtp_dealloc(receiver);
+    srtp_policy_destroy(sender_policy);
+    srtp_policy_destroy(receiver_policy);
+    free(newest_pkt);
+    free(oldest_pkt);
+    free(dropped_pkt);
+    free(hole_pkt);
+
+    return srtp_err_status_ok;
+}
+
+srtp_err_status_t srtp_test_update_replay_window(void)
+{
+    srtp_err_status_t status;
+
+    status = test_update_replay_window(ssrc_specific);
+    if (status) {
+        return status;
+    }
+
+    return test_update_replay_window(ssrc_any_inbound);
 }
 
 /* This test illustrates how the ROC can be mismatched between
